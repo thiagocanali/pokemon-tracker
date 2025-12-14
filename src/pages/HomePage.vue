@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { usePokemonStore, type Pokemon } from "../store/pokemon";
+import { usePokemonStore } from "../store/pokemon";
 import PokemonCard from "../components/PokemonCard.vue";
+import GameButton from "../components/GameButton.vue";
+import PokemonFilters from "../components/PokemonFilters.vue";
 
 const store = usePokemonStore();
-const search = ref("");
 const page = ref(1);
 
-const fetchPokemon = async () => {
-  if (!search.value) return;
-  await store.getPokemon(search.value.toLowerCase());
-};
+onMounted(async () => {
+  await store.init();
+  await store.loadList(page.value);
+});
 
 const nextPage = async () => {
   page.value++;
@@ -23,25 +24,15 @@ const prevPage = async () => {
   await store.loadList(page.value);
 };
 
-onMounted(() => {
-  store.loadList();
-});
-
-const toggleFavorite = (id: number) => {
-  store.toggleFavorite(id);
-};
+const toggleFavorite = (id: number) => store.toggleFavorite(id);
 </script>
 
 <template>
-  <section class="search">
-    <input v-model="search" placeholder="Nome ou ID" />
-    <button @click="fetchPokemon">Buscar</button>
-  </section>
+  <PokemonFilters />
 
-  <p v-if="store.loading">Carregando...</p>
-  <p v-if="store.error" class="error">{{ store.error }}</p>
+  <div v-if="store.loading">Carregando...</div>
+  <div v-if="store.error" class="error">{{ store.error }}</div>
 
-  <h2>Lista</h2>
   <div class="grid">
     <PokemonCard
       v-for="p in store.list"
@@ -53,36 +44,13 @@ const toggleFavorite = (id: number) => {
   </div>
 
   <footer class="pagination">
-    <button @click="prevPage" :disabled="page === 1">⬅</button>
+    <GameButton label="⬅" :disabled="page===1" :onClick="prevPage" />
     <span>Página {{ page }}</span>
-    <button @click="nextPage">➡</button>
+    <GameButton label="➡" :onClick="nextPage" />
   </footer>
 </template>
 
 <style scoped>
-.search {
-  margin: 1rem 0;
-  display: flex;
-  gap: 0.5rem;
-}
-
-input {
-  flex: 1;
-  padding: 0.5rem;
-}
-
-button {
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
 .pagination {
   display: flex;
   justify-content: center;
@@ -90,8 +58,8 @@ button {
   gap: 1rem;
   margin: 1rem 0;
 }
-
 .error {
   color: red;
+  text-align: center;
 }
 </style>

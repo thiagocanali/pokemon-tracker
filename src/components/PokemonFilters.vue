@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { usePokemonStore } from "../store/pokemon";
 
 const store = usePokemonStore();
 const type = ref("");
+
+watch(type, () => {
+  store.loadList(1, type.value);
+});
 </script>
 
 <template>
-  <select v-model="type" @change="store.loadList(1, type)" class="type-select">
+  <select v-model="type" class="type-select">
     <option value="">Todos</option>
     <option v-for="t in store.types" :key="t">{{ t }}</option>
   </select>
@@ -21,11 +25,9 @@ const type = ref("");
   border: 2px solid var(--primary);
   color: var(--text);
   font-weight: bold;
-  text-transform: capitalize;
   cursor: pointer;
   transition: all 0.2s;
 }
-
 .type-select:hover {
   transform: scale(1.05);
   border-color: gold;

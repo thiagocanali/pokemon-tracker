@@ -15,9 +15,9 @@ const isFavorite = () => props.favorites.includes(props.pokemon.id);
 
 <template>
   <div class="card">
-    <img :src="pokemon.sprites.front_default" :alt="pokemon.name" />
-    <h3>{{ pokemon.name }}</h3>
-    <button @click="emit('toggleFavorite', pokemon.id)">
+    <img :src="props.pokemon.sprites.front_default" :alt="props.pokemon.name" />
+    <h3>{{ props.pokemon.name }}</h3>
+    <button @click="emit('toggleFavorite', props.pokemon.id)">
       {{ isFavorite() ? "★ Favorito" : "☆ Favoritar" }}
     </button>
   </div>
