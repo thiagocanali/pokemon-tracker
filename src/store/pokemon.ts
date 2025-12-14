@@ -10,7 +10,7 @@ export interface Pokemon {
   types: { type: { name: string } }[];
   height?: number;
   weight?: number;
-  stats?: { base_stat: number; stat: { name: string } }[];
+  stats?: { stat: { name: string }; base_stat: number }[];
   abilities?: { ability: { name: string } }[];
 }
 
@@ -47,7 +47,7 @@ export const usePokemonStore = defineStore("pokemon", {
         // Atualiza tipos únicos
         const allTypes = new Set<string>();
         details.forEach(p => p.types.forEach(t => allTypes.add(t.type.name)));
-        this.types = Array.from(allTypes);
+        this.types = Array.from(allTypes).sort();
       } catch (e: any) {
         this.error = e.message;
       } finally {

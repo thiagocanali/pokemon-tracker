@@ -5,15 +5,15 @@ import { usePokemonStore } from "../store/pokemon";
 const store = usePokemonStore();
 const type = ref("");
 
-watch(type, async () => {
-  await store.loadList(1, type.value); // sempre carrega a página 1 ao filtrar
+watch(type, () => {
+  store.loadList(1, type.value);
 });
 </script>
 
 <template>
   <select v-model="type" class="type-select">
     <option value="">Todos</option>
-    <option v-for="t in store.types" :key="t" :value="t">{{ t }}</option>
+    <option v-for="t in store.types" :key="t">{{ t }}</option>
   </select>
 </template>
 
@@ -30,6 +30,6 @@ watch(type, async () => {
 }
 .type-select:hover {
   transform: scale(1.05);
-  border-color: #81d4fa;
+  border-color: #4dd0e1;
 }
 </style>

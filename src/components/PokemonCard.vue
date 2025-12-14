@@ -17,11 +17,6 @@ const isFavorite = () => props.favorites.includes(props.pokemon.id);
   <div class="card">
     <img :src="pokemon.sprites.front_default" :alt="pokemon.name" />
     <h3>{{ pokemon.name }}</h3>
-    <div class="types">
-      <span v-for="t in pokemon.types" :key="t.type.name" :class="['type-badge', t.type.name]">
-        {{ t.type.name }}
-      </span>
-    </div>
     <button @click="emit('toggleFavorite', pokemon.id)">
       {{ isFavorite() ? "★ Favorito" : "☆ Favoritar" }}
     </button>
@@ -29,36 +24,16 @@ const isFavorite = () => props.favorites.includes(props.pokemon.id);
 </template>
 
 <style scoped>
-.types {
-  display: flex;
-  justify-content: center;
-  gap: 0.3rem;
-  flex-wrap: wrap;
+.card img {
+  width: 120px;
+  transition: transform 0.3s;
 }
-
-.type-badge {
-  padding: 0.2rem 0.5rem;
-  border-radius: 6px;
-  color: white;
-  text-transform: capitalize;
-  font-size: 0.7rem;
+.card img:hover {
+  transform: scale(1.2) rotate(10deg);
 }
-
-.type-badge.fire { background: #f08030; }
-.type-badge.water { background: #6890f0; }
-.type-badge.grass { background: #78c850; }
-.type-badge.electric { background: #f8d030; color: #222; }
-.type-badge.ice { background: #98d8d8; color: #222; }
-.type-badge.fighting { background: #c03028; }
-.type-badge.poison { background: #a040a0; }
-.type-badge.ground { background: #e0c068; color: #222; }
-.type-badge.flying { background: #a890f0; }
-.type-badge.psychic { background: #f85888; }
-.type-badge.bug { background: #a8b820; }
-.type-badge.rock { background: #b8a038; }
-.type-badge.ghost { background: #705898; }
-.type-badge.dark { background: #705848; }
-.type-badge.dragon { background: #7038f8; }
-.type-badge.steel { background: #b8b8d0; color: #222; }
-.type-badge.fairy { background: #ee99ac; color: #222; }
+button {
+  background: #4dd0e1; /* azul pastel */
+  color: #222;
+  font-weight: bold;
+}
 </style>

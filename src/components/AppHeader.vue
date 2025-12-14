@@ -26,11 +26,16 @@ const store = usePokemonStore();
   padding: 1rem;
   background: var(--primary);
   color: var(--button-text);
-  flex-wrap: wrap;
+  text-shadow: 1px 1px rgba(0,0,0,0.2);
 }
 nav {
   display: flex;
   gap: 1rem;
   align-items: center;
+}
+button {
+  font-weight: bold;
+  padding: 0.3rem 0.6rem;
+  border-radius: 12px;
 }
 </style>

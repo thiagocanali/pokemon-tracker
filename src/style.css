@@ -1,10 +1,11 @@
+/* Variáveis de tema */
 :root {
-  --bg: #e0f7fa;
+  --bg: #e0f7fa; /* azul pastel */
   --text: #222;
-  --primary: #81d4fa;
+  --primary: #80deea; /* verde/azul pastel */
   --card-bg: #ffffff;
-  --card-shadow: rgba(0,0,0,0.15);
-  --button-bg: #81d4fa;
+  --card-shadow: rgba(0, 0, 0, 0.15);
+  --button-bg: #80deea;
   --button-text: #222;
 }
 
@@ -12,8 +13,11 @@
   --bg: #1e1e1e;
   --text: #f5f5f5;
   --card-bg: #2a2a2a;
-  --card-shadow: rgba(0,0,0,0.6);
+  --card-shadow: rgba(0, 0, 0, 0.6);
 }
+
+/* Fonte retrô */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
 body {
   background: var(--bg);
@@ -22,19 +26,23 @@ body {
   margin: 0;
 }
 
+/* Botões */
 button {
   cursor: pointer;
   background: var(--button-bg);
   color: var(--button-text);
   border: none;
   padding: 0.5rem 1rem;
-  border-radius: 8px;
-  transition: transform 0.2s;
+  border-radius: 12px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  font-weight: bold;
 }
 button:hover:not(:disabled) {
   transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
+/* Grid de cards */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -42,14 +50,67 @@ button:hover:not(:disabled) {
   padding: 1rem;
 }
 
+/* Card Pokémon */
 .card {
   background: var(--card-bg);
   box-shadow: 0 4px 8px var(--card-shadow);
-  border-radius: 12px;
+  border-radius: 16px;
   text-align: center;
   padding: 1rem;
-  transition: transform 0.2s;
+  transition: transform 0.3s, box-shadow 0.3s;
 }
 .card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-6px) scale(1.05);
+  box-shadow: 0 6px 12px var(--card-shadow);
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--primary);
+  color: var(--button-text);
+}
+nav {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+/* Select dropdown */
+.type-select {
+  padding: 0.5rem;
+  border-radius: 12px;
+  background: var(--card-bg);
+  border: 2px solid var(--primary);
+  color: var(--text);
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.type-select:hover {
+  transform: scale(1.05);
+  border-color: #4dd0e1;
+}
+
+/* Footer / Paginação */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+/* Erros e carregamento */
+.error {
+  color: red;
+  text-align: center;
+}
+.loading {
+  text-align: center;
+  font-weight: bold;
+  margin: 1rem 0;
 }
