@@ -30,7 +30,7 @@ const toggleFavorite = (id: number) => store.toggleFavorite(id);
 <template>
   <PokemonFilters />
 
-  <div v-if="store.loading">Carregando...</div>
+  <div v-if="store.loading" class="loading">Carregando...</div>
   <div v-if="store.error" class="error">{{ store.error }}</div>
 
   <div class="grid">
@@ -58,8 +58,14 @@ const toggleFavorite = (id: number) => store.toggleFavorite(id);
   gap: 1rem;
   margin: 1rem 0;
 }
+.loading {
+  text-align: center;
+  font-weight: bold;
+  margin: 1rem 0;
+}
 .error {
   color: red;
   text-align: center;
+  margin: 1rem 0;
 }
 </style>

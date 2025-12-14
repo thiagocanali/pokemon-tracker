@@ -1,47 +1,62 @@
 <script setup lang="ts">
+import { onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
+import { usePokemonStore } from "../store/pokemon";
 import type { Pokemon } from "../store/pokemon";
 
-const props = defineProps<{
-  pokemon: Pokemon;
-  favorites: number[];
-}>();
+const route = useRoute();
+const store = usePokemonStore();
+const pokemon = ref<Pokemon | null>(null);
 
-const emit = defineEmits<{
-  (e: "toggleFavorite", id: number): void;
-}>();
-
-const isFavorite = () => props.favorites.includes(props.pokemon.id);
+onMounted(async () => {
+  const data = await store.getPokemon(route.params.id as string);
+  pokemon.value = data;
+});
 </script>
 
 <template>
-  <div class="card">
+  <div v-if="pokemon" class="details">
     <img :src="pokemon.sprites.front_default" :alt="pokemon.name" />
-    <h3>{{ pokemon.name }}</h3>
-    <div class="types">
+    <h2>{{ pokemon.name }}</h2>
+    <p>Altura: {{ pokemon.height }}</p>
+    <p>Peso: {{ pokemon.weight }}</p>
+    <p>Tipos: 
       <span v-for="t in pokemon.types" :key="t.type.name" :class="['type-badge', t.type.name]">
         {{ t.type.name }}
       </span>
-    </div>
-    <button @click="emit('toggleFavorite', pokemon.id)">
-      {{ isFavorite() ? "★ Favorito" : "☆ Favoritar" }}
-    </button>
+    </p>
+
+    <p>Stats:</p>
+    <ul>
+      <li v-for="s in pokemon.stats" :key="s.stat.name">
+        {{ s.stat.name }}: {{ s.base_stat }}
+      </li>
+    </ul>
+
+    <p>Habilidades:</p>
+    <ul>
+      <li v-for="a in pokemon.abilities" :key="a.ability.name">{{ a.ability.name }}</li>
+    </ul>
   </div>
 </template>
 
 <style scoped>
-.types {
+.details {
   display: flex;
-  justify-content: center;
-  gap: 0.3rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin: 2rem;
 }
 
 .type-badge {
+  display: inline-block;
+  margin: 0 0.3rem;
   padding: 0.2rem 0.5rem;
   border-radius: 6px;
   color: white;
   text-transform: capitalize;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
 }
 
 .type-badge.fire { background: #f08030; }

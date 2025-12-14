@@ -12,7 +12,7 @@ const favoriteList = () =>
 
 <template>
   <h2>Favoritos</h2>
-  <div v-if="favoriteList().length === 0">Nenhum Pokémon favoritado</div>
+  <div v-if="favoriteList().length === 0" class="empty">Nenhum Pokémon favoritado</div>
   <div class="grid">
     <PokemonCard
       v-for="p in favoriteList()"
@@ -23,3 +23,11 @@ const favoriteList = () =>
     />
   </div>
 </template>
+
+<style scoped>
+.empty {
+  text-align: center;
+  font-weight: bold;
+  margin: 1rem 0;
+}
+</style>

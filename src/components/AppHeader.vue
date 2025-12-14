@@ -26,6 +26,7 @@ const store = usePokemonStore();
   padding: 1rem;
   background: var(--primary);
   color: var(--button-text);
+  flex-wrap: wrap;
 }
 nav {
   display: flex;
