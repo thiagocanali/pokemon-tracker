@@ -27,3 +27,5 @@ Ideal para portfolio e prática de desenvolvimento frontend.
 📊 Páginas de detalhes com informações adicionais
 
 🖥️ Interface responsiva
+
+<img width="937" height="997" alt="image" src="https://github.com/user-attachments/assets/e6a380f2-4634-4345-a2a7-d2122000353d" />
