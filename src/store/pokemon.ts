@@ -23,6 +23,7 @@ export const usePokemonStore = defineStore("pokemon", {
     types: [] as string[],
     loading: false,
     error: "",
+    searchRequestId: 0,
     darkMode: false,
   }),
   actions: {
@@ -79,6 +80,7 @@ export const usePokemonStore = defineStore("pokemon", {
         return;
       }
 
+      const requestId = ++this.searchRequestId;
       this.loading = true;
       this.error = "";
       try {
@@ -96,18 +98,21 @@ export const usePokemonStore = defineStore("pokemon", {
             .filter((pokemon: { name: string; url: string }) => pokemon.name.includes(normalized) || pokemon.url.split("/").filter(Boolean).pop() === normalized)
             .slice(0, 20);
         }
-        this.searchResults = await Promise.all(matches.map((pokemon) => fetch(pokemon.url).then((res) => {
+        const results = await Promise.all(matches.map((pokemon) => fetch(pokemon.url).then((res) => {
           if (!res.ok) throw new Error("Não foi possível carregar os dados do Pokémon");
           return res.json();
         })));
+        if (requestId !== this.searchRequestId) return;
+        this.searchResults = results;
         const allTypes = new Set<string>();
         this.searchResults.forEach((pokemon) => pokemon.types.forEach((type) => allTypes.add(type.type.name)));
         this.types = Array.from(allTypes).sort();
       } catch (e: any) {
+        if (requestId !== this.searchRequestId) return;
         this.error = e.message;
         this.searchResults = [];
       } finally {
-        this.loading = false;
+        if (requestId === this.searchRequestId) this.loading = false;
       }
     },
 
