@@ -9,9 +9,3 @@ import AppHeader from "./components/AppHeader.vue";
   </div>
 </template>
 
-<style>
-body {
-  margin: 0;
-  font-family: 'Press Start 2P', cursive;
-}
-</style>
