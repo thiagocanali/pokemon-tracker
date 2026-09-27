@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { usePokemonStore } from "../store/pokemon";
 
@@ -7,6 +7,7 @@ const store = usePokemonStore();
 const query = ref("");
 const selectedType = ref("");
 const page = ref(1);
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 const visiblePokemon = computed(() => store.list.filter((pokemon) => {
   const matchesQuery = !query.value || pokemon.name.includes(query.value.toLowerCase()) || String(pokemon.id) === query.value;
@@ -23,13 +24,21 @@ async function filterByType() {
   await store.loadList(page.value, selectedType.value);
 }
 
-watch(query, async (value) => {
+watch(query, (value) => {
   page.value = 1;
-  if (value.trim()) {
-    await store.searchPokemon(value);
-  } else {
-    await store.loadList(1, selectedType.value);
-  }
+  if (searchTimer) clearTimeout(searchTimer);
+
+  searchTimer = setTimeout(async () => {
+    if (value.trim()) {
+      await store.searchPokemon(value);
+    } else {
+      await store.loadList(1, selectedType.value);
+    }
+  }, 280);
+});
+
+onBeforeUnmount(() => {
+  if (searchTimer) clearTimeout(searchTimer);
 });
 
 onMounted(async () => {
@@ -49,7 +58,7 @@ onMounted(async () => {
     </section>
 
     <section class="database-toolbar" aria-label="Filtros da database">
-      <label class="database-search"><span aria-hidden="true">⌕</span><input v-model="query" type="search" placeholder="Buscar por nome ou número..." /></label>
+      <label class="database-search"><span aria-hidden="true">⌕</span><span class="sr-only">Buscar Pokémon</span><input v-model="query" type="search" placeholder="Buscar por nome ou número..." aria-label="Buscar por nome ou número" /></label>
       <label class="type-filter"><span>Tipo</span><select v-model="selectedType" @change="filterByType"><option value="">Todos os tipos</option><option v-for="type in store.types" :key="type" :value="type">{{ type }}</option></select></label>
     </section>
 
