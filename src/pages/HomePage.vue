@@ -1,192 +1,60 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
+import { RouterLink } from "vue-router";
 import { usePokemonStore } from "../store/pokemon";
 import PokemonCard from "../components/PokemonCard.vue";
 
 const store = usePokemonStore();
-const randomPokemons = ref(store.list.slice(0, 10));
-const capturingId = ref<number | null>(null);
-const captureProgress = ref(0);
-const hpMap = ref<Record<number, number>>({});
-const escapedPokemons = ref<number[]>([]); // Pokémons que escaparam
+const query = ref("");
+const featured = computed(() => store.list.slice(0, 4));
+const searchResults = computed(() => store.list.filter((pokemon) => pokemon.name.includes(query.value.toLowerCase())).slice(0, 5));
 
-// Inicializa HP de cada Pokémon
-const initHP = () => {
-  randomPokemons.value.forEach(p => {
-    hpMap.value[p.id] = Math.floor(Math.random() * 50) + 50; // HP entre 50 e 100
-  });
-  escapedPokemons.value = [];
-};
-
-// Função de captura
-const tryCapture = async (pokemonId: number) => {
-  if (capturingId.value) return;
-  capturingId.value = pokemonId;
-  captureProgress.value = 0;
-
-  const suspenseAudio = new Audio("/suspense.mp3");
-  suspenseAudio.loop = true;
-  suspenseAudio.play();
-
-  const interval = setInterval(() => {
-    captureProgress.value += Math.random() * 20;
-
-    // HP seguro
-    hpMap.value[pokemonId] = (hpMap.value[pokemonId] ?? 100) - Math.floor(Math.random() * 10 + 5);
-    if (hpMap.value[pokemonId] < 0) hpMap.value[pokemonId] = 0;
-
-    if (captureProgress.value >= 100) {
-      clearInterval(interval);
-      capturingId.value = null;
-      suspenseAudio.pause();
-      suspenseAudio.currentTime = 0;
-
-      const success = Math.random() < 0.7; // 70% chance
-      if (success) {
-        alert("🎉 Pokémon capturado!");
-        store.toggleFavorite(pokemonId);
-        new Audio("/capture-sound.mp3").play();
-      } else {
-        alert("💨 O Pokémon escapou!");
-        escapedPokemons.value.push(pokemonId);
-        new Audio("/fail-sound.mp3").play();
-      }
-
-      captureProgress.value = 0;
-    }
-  }, 500);
-};
-
-// Embaralha a lista para novo mini-RPG
-const shufflePokemons = () => {
-  randomPokemons.value = store.list
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 10);
-  initHP();
-};
-
-// Ao montar o componente
 onMounted(async () => {
   if (store.list.length === 0) await store.init();
-  await store.loadList(1);
-  shufflePokemons();
+  if (store.list.length === 0) await store.loadList(1);
 });
 </script>
 
 <template>
-  <div>
-    <h2>🎮 Mini-RPG Pokémon</h2>
-    <button @click="shufflePokemons">🔄 Nova rodada</button>
-
-    <div class="grid">
-      <div
-        v-for="p in randomPokemons"
-        :key="p.id"
-        class="shaking-card"
-        :class="{
-          shaking: capturingId === p.id,
-          escaped: escapedPokemons.includes(p.id)
-        }"
-      >
-        <PokemonCard
-          :pokemon="p"
-          :favorites="store.favorites"
-          @toggleFavorite="() => tryCapture(p.id)"
-        />
-
-        <div class="hp-bar">
-          <div class="hp-progress" :style="{ width: hpMap[p.id] + '%' }"></div>
+  <main class="dashboard page-shell">
+    <section class="hero-panel">
+      <div class="hero-copy">
+        <span class="eyebrow">Pokémon GO Consultant</span>
+        <h1>Decida melhor.<br /><span>Jogue mais longe.</span></h1>
+        <p>Uma central inteligente para descobrir Pokémon, analisar batalhas e acompanhar tudo que importa no seu próximo encontro.</p>
+        <label class="search-box">
+          <span aria-hidden="true">⌕</span>
+          <input v-model="query" type="search" placeholder="Buscar Pokémon, tipo ou recurso..." />
+          <kbd>/</kbd>
+        </label>
+        <div v-if="query" class="search-results">
+          <RouterLink v-for="pokemon in searchResults" :key="pokemon.id" :to="`/pokemon/${pokemon.id}`">#{{ String(pokemon.id).padStart(3, '0') }} {{ pokemon.name }}</RouterLink>
+          <span v-if="searchResults.length === 0">Nenhum resultado local. Tente carregar outra página na database.</span>
         </div>
-
-        <div v-if="capturingId === p.id" class="capture-bar">
-          <div class="progress" :style="{ width: captureProgress + '%' }"></div>
-        </div>
-
-        <div v-if="escapedPokemons.includes(p.id)" class="escape-effect"></div>
       </div>
-    </div>
-  </div>
+      <div class="hero-orbit" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbital-core">GO</div></div>
+    </section>
+
+    <section class="section-block">
+      <div class="section-heading"><div><span class="eyebrow">Visão geral</span><h2>O que está acontecendo</h2></div><span class="status-pill"><i></i> Dados sincronizados</span></div>
+      <div class="insight-grid">
+        <article class="insight-card highlight"><div class="card-icon">◈</div><span class="card-label">Evento em destaque</span><h3>Temporada: Céus em mudança</h3><p>Prepare sua equipe para os próximos encontros e bônus de captura.</p><RouterLink to="/pokemon/25">Explorar detalhes <span>→</span></RouterLink></article>
+        <article class="insight-card"><div class="card-icon violet">✦</div><span class="card-label">Recomendação do dia</span><h3>Monte seu time ideal</h3><p>Compare stats e tipos para encontrar o melhor counter.</p><RouterLink to="/favorites">Abrir favoritos <span>→</span></RouterLink></article>
+        <article class="insight-card"><div class="card-icon blue">⌁</div><span class="card-label">Atalho rápido</span><h3>Database de Pokémon</h3><p>Consulte informações, evoluções e formas em um só lugar.</p><RouterLink to="/pokemon/1">Ver database <span>→</span></RouterLink></article>
+      </div>
+    </section>
+
+    <section class="section-block"><div class="section-heading"><div><span class="eyebrow">Para começar</span><h2>Pokémon em destaque</h2></div><RouterLink class="text-link" to="/pokemon/1">Ver todos <span>→</span></RouterLink></div><div class="featured-grid"><PokemonCard v-for="pokemon in featured" :key="pokemon.id" :pokemon="pokemon" :favorites="store.favorites" @toggleFavorite="store.toggleFavorite(pokemon.id)" /></div></section>
+
+    <section class="tool-strip"><div><span class="eyebrow">Ferramentas para treinadores</span><h2>Tenha clareza antes da próxima batalha.</h2></div><RouterLink class="button button-primary" to="/game">Abrir área Game</RouterLink></section>
+  </main>
 </template>
 
 <style scoped>
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 1rem;
-  padding: 1rem;
-}
-
-.shaking-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative;
-  transition: transform 0.3s;
-}
-.shaking-card.shaking {
-  animation: shake 0.5s infinite;
-}
-.shaking-card.escaped {
-  animation: escape 1s forwards;
-}
-
-.hp-bar {
-  width: 100%;
-  height: 8px;
-  background: #ddd;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-top: 0.5rem;
-}
-.hp-progress {
-  height: 100%;
-  background: #4caf50; /* verde pastel */
-  width: 100%;
-  transition: width 0.3s ease;
-}
-
-.capture-bar {
-  width: 100%;
-  height: 10px;
-  background: #ddd;
-  border-radius: 5px;
-  overflow: hidden;
-  margin-top: 0.5rem;
-}
-.capture-bar .progress {
-  height: 100%;
-  background: #42a5f5; /* azul pastel */
-  width: 0%;
-  transition: width 0.3s ease;
-}
-
-.escape-effect {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle, rgba(255,255,255,0.5) 0%, transparent 70%);
-  border-radius: 12px;
-  animation: fadeEscape 1s forwards;
-  pointer-events: none;
-}
-
-@keyframes shake {
-  0% { transform: translate(1px, 0) rotate(1deg); }
-  25% { transform: translate(-1px, 0) rotate(-1deg); }
-  50% { transform: translate(1px, 0) rotate(1deg); }
-  75% { transform: translate(-1px, 0) rotate(-1deg); }
-  100% { transform: translate(1px, 0) rotate(1deg); }
-}
-
-@keyframes fadeEscape {
-  0% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1.5); }
-}
-
-@keyframes escape {
-  0% { transform: translateY(0) scale(1); opacity: 1; }
-  100% { transform: translateY(-50px) scale(0.5); opacity: 0; }
-}
+.hero-panel { min-height: 390px; position: relative; display:flex; align-items:center; overflow:hidden; padding: 64px clamp(28px, 6vw, 92px); border:1px solid var(--line); border-radius: 28px; background: radial-gradient(circle at 80% 18%, rgba(131, 96, 255, .2), transparent 32%), linear-gradient(115deg, var(--surface) 0%, #181929 100%); }
+.hero-copy { max-width: 650px; position:relative; z-index:1; } .hero-copy h1 { margin: 16px 0; font-size: clamp(36px, 5vw, 68px); line-height:1.02; letter-spacing:-.06em; } .hero-copy h1 span { color: var(--accent-bright); } .hero-copy p { max-width: 540px; color: var(--muted); font-size: 15px; line-height:1.7; }
+.search-box { display:flex; align-items:center; gap:12px; max-width: 590px; margin-top:30px; padding: 14px 16px; border:1px solid var(--line-strong); border-radius: 13px; background:rgba(10,11,20,.75); color:var(--muted); } .search-box input { flex:1; border:0; outline:0; background:transparent; color:var(--text); font:inherit; font-size:13px; } kbd { border:1px solid var(--line-strong); border-radius:5px; padding:3px 7px; font-size:11px; }.search-results { display:flex; flex-direction:column; gap:8px; position:absolute; z-index:3; width:min(590px, 100%); padding:12px; border:1px solid var(--line); border-radius:12px; background:var(--surface-elevated); }.search-results a,.search-results span { padding:8px; color:var(--text); font-size:12px; text-decoration:none; }.search-results a:hover { background:var(--surface-muted); border-radius:6px; }
+.hero-orbit { position:absolute; right:7%; width:260px; height:260px; opacity:.8; }.orbit { position:absolute; inset:0; border:1px solid rgba(157,126,255,.25); border-radius:50%; transform:rotate(25deg) scaleY(.45); }.orbit-two { transform:rotate(-25deg) scaleY(.45); }.orbital-core { position:absolute; inset:82px; display:grid; place-items:center; border-radius:50%; background:linear-gradient(135deg,#8360ff,#36c7ff); color:#fff; font-weight:800; letter-spacing:.1em; box-shadow:0 0 70px rgba(131,96,255,.55); }
+.section-block { margin-top:56px; }.section-heading { display:flex; justify-content:space-between; align-items:end; margin-bottom:20px; }.section-heading h2,.tool-strip h2 { margin:8px 0 0; font-size:24px; letter-spacing:-.03em; }.eyebrow,.card-label { color:var(--muted); font-size:10px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; }.status-pill { color:#76e2b8; font-size:11px; }.status-pill i { display:inline-block; width:7px; height:7px; margin-right:7px; border-radius:50%; background:#49d39b; box-shadow:0 0 10px #49d39b; }.insight-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }.insight-card { min-height:190px; padding:23px; border:1px solid var(--line); border-radius:16px; background:var(--surface); }.insight-card.highlight { background:linear-gradient(135deg,rgba(131,96,255,.22),var(--surface)); border-color:rgba(131,96,255,.35); }.card-icon { color:#f2bb54; font-size:22px; }.card-icon.violet { color:#a689ff; }.card-icon.blue { color:#54cbff; }.insight-card h3 { margin:13px 0 8px; font-size:16px; }.insight-card p { min-height:42px; color:var(--muted); font-size:12px; line-height:1.6; }.insight-card a,.text-link { color:var(--accent-bright); font-size:12px; text-decoration:none; }.insight-card a span,.text-link span { margin-left:6px; }.featured-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }.tool-strip { display:flex; justify-content:space-between; align-items:center; margin:56px 0 20px; padding:30px; border:1px solid var(--line); border-radius:18px; background:var(--surface); }
+@media (max-width:800px) { .hero-orbit { opacity:.25; right:-50px; }.insight-grid,.featured-grid { grid-template-columns:1fr 1fr; } } @media (max-width:560px) { .hero-panel { padding:38px 22px; }.insight-grid,.featured-grid { grid-template-columns:1fr; }.section-heading,.tool-strip { align-items:flex-start; flex-direction:column; gap:18px; } }
 </style>
