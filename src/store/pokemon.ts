@@ -71,7 +71,7 @@ export const usePokemonStore = defineStore("pokemon", {
         if (directRes.ok) {
           matches = [{ url: `https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(normalized)}` }];
         } else {
-          const catalogRes = await fetch("https://pokeapi.co/api/v2/pokemon?limit=1302&offset=0");
+          const catalogRes = await fetch("https://pokeapi.co/api/v2/pokemon?limit=2000&offset=0");
           if (!catalogRes.ok) throw new Error("Não foi possível consultar a Pokédex");
           const catalog = await catalogRes.json();
           matches = catalog.results
