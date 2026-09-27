@@ -9,19 +9,24 @@ const capturingId = ref<number | null>(null);
 const captureProgress = ref(0);
 const hpMap = ref<Record<number, number>>({});
 const escapedPokemons = ref<number[]>([]);
+const capturedThisRound = ref<number[]>([]);
+const feedback = ref("");
 
 const initHP = () => {
   randomPokemons.value.forEach((pokemon) => {
     hpMap.value[pokemon.id] = Math.floor(Math.random() * 50) + 50;
   });
   escapedPokemons.value = [];
+  capturedThisRound.value = [];
+  feedback.value = "Escolha um Pokémon para tentar capturar.";
 };
 
 const tryCapture = async (pokemonId: number) => {
-  if (capturingId.value) return;
+  if (capturingId.value || escapedPokemons.value.includes(pokemonId) || capturedThisRound.value.includes(pokemonId)) return;
   capturingId.value = pokemonId;
+  feedback.value = "A Poké Ball está em movimento...";
   captureProgress.value = 0;
-  const interval = setInterval(() => {
+  const interval = setInterval(async () => {
     captureProgress.value += Math.random() * 20;
     hpMap.value[pokemonId] = Math.max(0, (hpMap.value[pokemonId] ?? 100) - Math.floor(Math.random() * 10 + 5));
     if (captureProgress.value >= 100) {
@@ -29,11 +34,12 @@ const tryCapture = async (pokemonId: number) => {
       capturingId.value = null;
       const success = Math.random() < 0.7;
       if (success) {
-        window.alert("Pokémon capturado!");
-        store.toggleFavorite(pokemonId);
+        capturedThisRound.value.push(pokemonId);
+        feedback.value = "Captura confirmada. O Pokémon foi adicionado aos favoritos.";
+        if (!store.favorites.includes(pokemonId)) await store.toggleFavorite(pokemonId);
       } else {
-        window.alert("O Pokémon escapou!");
         escapedPokemons.value.push(pokemonId);
+        feedback.value = "O Pokémon escapou. Tente outro encontro na próxima rodada.";
       }
       captureProgress.value = 0;
     }
@@ -69,6 +75,7 @@ onMounted(async () => {
         <button class="button button-primary" @click="shufflePokemons">Nova rodada</button>
       </div>
     </section>
+    <p v-if="feedback" class="game-feedback" role="status">{{ feedback }}</p>
     <div v-if="store.loading" class="loading-state">Preparando encontro...</div>
     <p v-else-if="!randomPokemons.length" class="empty-state">Não foi possível carregar Pokémon para esta rodada. Tente novamente.</p>
     <div v-else class="game-grid">
@@ -87,6 +94,7 @@ onMounted(async () => {
 .game-stat { display: flex; flex-direction: column; min-width: 62px; gap: 2px; }
 .game-stat strong { color: var(--accent-bright); font-size: 17px; }
 .game-stat span { color: var(--muted); font-size: 10px; }
+.game-feedback { margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-muted); color: var(--muted); font-size: 12px; }
 .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
 .game-card { position: relative; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); transition: transform .2s, border-color .2s; }
 .game-card:hover { border-color: var(--accent); transform: translateY(-3px); }
