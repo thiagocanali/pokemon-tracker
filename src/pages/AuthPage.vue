@@ -83,7 +83,7 @@ async function submit() {
         <label>Senha<input v-model="password" type="password" :autocomplete="mode === 'login' ? 'current-password' : 'new-password'" minlength="6" required placeholder="Mínimo de 6 caracteres" /></label>
         <p v-if="error" class="form-error" role="alert">{{ error }}</p>
         <p v-if="message" class="form-message" role="status">{{ message }}</p>
-        <button class="button button-primary auth-submit" :disabled="loading">{{ loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar cadastro" }}</button>
+        <button class="button button-primary auth-submit" :disabled="loading">{{ loading ? "Aguarde..." : mode === "login" ? "Entrar" : mode === "reset" ? "Atualizar senha" : "Criar cadastro" }}</button>
       </form>
       <button v-if="mode === 'login'" class="recovery-link" type="button" :disabled="recovering" @click="recoverAccess">{{ recovering ? "Enviando instruções..." : "Esqueci minha senha" }}</button>
       <button class="mode-switch" type="button" @click="mode = mode === 'login' ? 'signup' : 'login'">{{ mode === "login" ? "Ainda não tenho cadastro" : "Já tenho uma conta" }}</button>
