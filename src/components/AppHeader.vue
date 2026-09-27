@@ -10,6 +10,7 @@ const store = usePokemonStore();
     <nav class="main-nav" aria-label="Navegação principal">
       <RouterLink to="/" exact-active-class="active">Dashboard</RouterLink>
       <RouterLink to="/pokemon">Pokémon</RouterLink>
+      <RouterLink to="/compare">Comparar</RouterLink>
       <RouterLink to="/favorites">Favoritos <span v-if="store.favorites.length" class="count">{{ store.favorites.length }}</span></RouterLink>
       <RouterLink to="/game">Game</RouterLink>
     </nav>

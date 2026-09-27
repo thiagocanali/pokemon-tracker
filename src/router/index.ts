@@ -4,12 +4,14 @@ import PokemonListPage from "../pages/PokemonListPage.vue";
 import GamePage from "../pages/GamePage.vue";
 import FavoritesPage from "../pages/FavoritesPage.vue";
 import PokemonDetail from "../pages/PokemonDetail.vue";
+import ComparePage from "../pages/ComparePage.vue";
 
 const routes = [
   { path: "/", component: HomePage },
   { path: "/pokemon", component: PokemonListPage },
   { path: "/game", component: GamePage },
   { path: "/favorites", component: FavoritesPage },
+  { path: "/compare", component: ComparePage },
   { path: "/pokemon/:id", component: PokemonDetail },
 ];
 
