@@ -9,11 +9,14 @@ const selectedType = ref("");
 const page = ref(1);
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
-const visiblePokemon = computed(() => store.list.filter((pokemon) => {
-  const matchesQuery = !query.value || pokemon.name.includes(query.value.toLowerCase()) || String(pokemon.id) === query.value;
-  const matchesType = !selectedType.value || pokemon.types.some((type) => type.type.name === selectedType.value);
-  return matchesQuery && matchesType;
-}));
+const visiblePokemon = computed(() => {
+  const source = query.value.trim() ? store.searchResults : store.list;
+  return source.filter((pokemon) => {
+    const matchesQuery = !query.value || pokemon.name.includes(query.value.toLowerCase()) || String(pokemon.id) === query.value;
+    const matchesType = !selectedType.value || pokemon.types.some((type) => type.type.name === selectedType.value);
+    return matchesQuery && matchesType;
+  });
+});
 
 async function loadPage(nextPage: number) {
   page.value = nextPage;
