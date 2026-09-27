@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { supabase } from "../lib/supabase";
 
 export interface Pokemon {
   id: number;
@@ -26,10 +27,26 @@ export const usePokemonStore = defineStore("pokemon", {
   }),
   actions: {
     async init() {
-      const dark = localStorage.getItem("darkMode");
-      this.darkMode = dark === "true";
-      const fav = localStorage.getItem("favorites");
-      this.favorites = fav ? JSON.parse(fav) : [];
+      const dark = localStorage.getItem("darkMode") === "true";
+      this.darkMode = dark;
+      document.body.className = dark ? "dark" : "";
+
+      const { data } = await supabase.auth.getUser();
+      const accountFavorites = data.user?.user_metadata?.favorites;
+      if (Array.isArray(accountFavorites)) {
+        this.favorites = accountFavorites.map(Number).filter(Number.isInteger);
+        localStorage.setItem("favorites", JSON.stringify(this.favorites));
+        return;
+      }
+
+      try {
+        const storedFavorites = JSON.parse(localStorage.getItem("favorites") || "[]");
+        this.favorites = Array.isArray(storedFavorites)
+          ? storedFavorites.map(Number).filter(Number.isInteger)
+          : [];
+      } catch {
+        this.favorites = [];
+      }
     },
     async loadList(page = 1, type = "") {
       this.loading = true;
@@ -104,13 +121,22 @@ export const usePokemonStore = defineStore("pokemon", {
         this.loading = false;
       }
     },
-    toggleFavorite(id: number) {
+    async toggleFavorite(id: number) {
       if (this.favorites.includes(id)) {
         this.favorites = this.favorites.filter(f => f !== id);
       } else {
         this.favorites.push(id);
       }
-      localStorage.setItem("favorites", JSON.stringify(this.favorites));
+
+      const serialized = JSON.stringify(this.favorites);
+      localStorage.setItem("favorites", serialized);
+
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        await supabase.auth.updateUser({
+          data: { favorites: this.favorites },
+        });
+      }
     },
     toggleDarkMode() {
       this.darkMode = !this.darkMode;

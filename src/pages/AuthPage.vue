@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { supabase } from "../lib/supabase";
 
 const router = useRouter();
+const route = useRoute();
 const mode = ref<"login" | "signup">("login");
 const email = ref("");
 const password = ref("");
@@ -13,12 +14,20 @@ const error = ref("");
 const title = computed(() => mode.value === "login" ? "Entrar no PokéLab" : "Criar seu perfil");
 
 async function submit() {
+  if (loading.value) return;
   loading.value = true;
   message.value = "";
   error.value = "";
-  const result = mode.value === "login"
-    ? await supabase.auth.signInWithPassword({ email: email.value, password: password.value })
-    : await supabase.auth.signUp({ email: email.value, password: password.value });
+  let result;
+  try {
+    result = mode.value === "login"
+      ? await supabase.auth.signInWithPassword({ email: email.value, password: password.value })
+      : await supabase.auth.signUp({ email: email.value, password: password.value });
+  } catch {
+    loading.value = false;
+    error.value = "Não foi possível conectar ao serviço de autenticação.";
+    return;
+  }
   loading.value = false;
   if (result.error) {
     error.value = mode.value === "login" ? "E-mail ou senha inválidos." : "Não foi possível criar a conta. Confira os dados e tente novamente.";
@@ -28,7 +37,10 @@ async function submit() {
     message.value = "Cadastro criado. Confira seu e-mail para confirmar a conta.";
     return;
   }
-  router.push("/account");
+  const redirect = typeof route.query.redirect === "string" && route.query.redirect.startsWith("/")
+    ? route.query.redirect
+    : "/account";
+  router.push(redirect);
 }
 </script>
 
@@ -40,7 +52,7 @@ async function submit() {
       <p class="auth-intro">Salve favoritos, acompanhe sua jornada e mantenha seus dados sincronizados.</p>
       <form @submit.prevent="submit">
         <label>E-mail<input v-model="email" type="email" autocomplete="email" required placeholder="treinador@email.com" /></label>
-        <label>Senha<input v-model="password" type="password" autocomplete="current-password" minlength="6" required placeholder="Mínimo de 6 caracteres" /></label>
+        <label>Senha<input v-model="password" type="password" :autocomplete="mode === 'login' ? 'current-password' : 'new-password'" minlength="6" required placeholder="Mínimo de 6 caracteres" /></label>
         <p v-if="error" class="form-error" role="alert">{{ error }}</p>
         <p v-if="message" class="form-message" role="status">{{ message }}</p>
         <button class="button button-primary auth-submit" :disabled="loading">{{ loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar cadastro" }}</button>
