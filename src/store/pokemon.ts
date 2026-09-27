@@ -54,6 +54,34 @@ export const usePokemonStore = defineStore("pokemon", {
         this.loading = false;
       }
     },
+    async searchPokemon(query: string) {
+      const normalized = query.trim().toLowerCase();
+      if (!normalized) {
+        await this.loadList();
+        return;
+      }
+
+      this.loading = true;
+      this.error = "";
+      try {
+        const catalogRes = await fetch("https://pokeapi.co/api/v2/pokemon?limit=1025&offset=0");
+        if (!catalogRes.ok) throw new Error("Não foi possível consultar a Pokédex");
+        const catalog = await catalogRes.json();
+        const matches = catalog.results
+          .filter((pokemon: { name: string; url: string }) => pokemon.name.includes(normalized) || pokemon.url.split("/").filter(Boolean).pop() === normalized)
+          .slice(0, 20);
+        this.list = await Promise.all(matches.map((pokemon: { url: string }) => fetch(pokemon.url).then((res) => res.json())));
+        const allTypes = new Set<string>();
+        this.list.forEach((pokemon) => pokemon.types.forEach((type) => allTypes.add(type.type.name)));
+        this.types = Array.from(allTypes).sort();
+      } catch (e: any) {
+        this.error = e.message;
+        this.list = [];
+      } finally {
+        this.loading = false;
+      }
+    },
+
     async getPokemon(id: string) {
       this.loading = true;
       try {

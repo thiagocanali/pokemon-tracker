@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { usePokemonStore } from "../store/pokemon";
 
@@ -22,6 +22,15 @@ async function loadPage(nextPage: number) {
 async function filterByType() {
   await store.loadList(page.value, selectedType.value);
 }
+
+watch(query, async (value) => {
+  page.value = 1;
+  if (value.trim()) {
+    await store.searchPokemon(value);
+  } else {
+    await store.loadList(1, selectedType.value);
+  }
+});
 
 onMounted(async () => {
   if (!store.list.length) await store.loadList();
