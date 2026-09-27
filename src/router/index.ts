@@ -11,6 +11,7 @@ import RaidsPage from "../pages/RaidsPage.vue";
 import CountersPage from "../pages/CountersPage.vue";
 import AuthPage from "../pages/AuthPage.vue";
 import AccountPage from "../pages/AccountPage.vue";
+import { supabase } from "../lib/supabase";
 
 const routes = [
   { path: "/", component: HomePage },
@@ -30,6 +31,12 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
+});
+
+router.beforeEach(async (to) => {
+  if (to.path !== "/account") return true;
+  const { data } = await supabase.auth.getUser();
+  return data.user ? true : { path: "/auth", query: { redirect: "/account" } };
 });
 
 export default router;

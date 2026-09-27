@@ -13,6 +13,7 @@ const error = ref("");
 const title = computed(() => mode.value === "login" ? "Entrar no PokéLab" : "Criar seu perfil");
 
 async function submit() {
+  if (loading.value) return;
   loading.value = true;
   message.value = "";
   error.value = "";
@@ -40,7 +41,7 @@ async function submit() {
       <p class="auth-intro">Salve favoritos, acompanhe sua jornada e mantenha seus dados sincronizados.</p>
       <form @submit.prevent="submit">
         <label>E-mail<input v-model="email" type="email" autocomplete="email" required placeholder="treinador@email.com" /></label>
-        <label>Senha<input v-model="password" type="password" autocomplete="current-password" minlength="6" required placeholder="Mínimo de 6 caracteres" /></label>
+        <label>Senha<input v-model="password" type="password" :autocomplete="mode === 'login' ? 'current-password' : 'new-password'" minlength="6" required placeholder="Mínimo de 6 caracteres" /></label>
         <p v-if="error" class="form-error" role="alert">{{ error }}</p>
         <p v-if="message" class="form-message" role="status">{{ message }}</p>
         <button class="button button-primary auth-submit" :disabled="loading">{{ loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar cadastro" }}</button>
