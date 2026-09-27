@@ -17,6 +17,7 @@ export interface Pokemon {
 export const usePokemonStore = defineStore("pokemon", {
   state: () => ({
     list: [] as Pokemon[],
+    searchResults: [] as Pokemon[],
     favorites: [] as number[],
     types: [] as string[],
     loading: false,
@@ -57,7 +58,7 @@ export const usePokemonStore = defineStore("pokemon", {
     async searchPokemon(query: string) {
       const normalized = query.trim().toLowerCase();
       if (!normalized) {
-        await this.loadList(1);
+        this.searchResults = [];
         return;
       }
 
@@ -78,16 +79,16 @@ export const usePokemonStore = defineStore("pokemon", {
             .filter((pokemon: { name: string; url: string }) => pokemon.name.includes(normalized) || pokemon.url.split("/").filter(Boolean).pop() === normalized)
             .slice(0, 20);
         }
-        this.list = await Promise.all(matches.map((pokemon) => fetch(pokemon.url).then((res) => {
+        this.searchResults = await Promise.all(matches.map((pokemon) => fetch(pokemon.url).then((res) => {
           if (!res.ok) throw new Error("Não foi possível carregar os dados do Pokémon");
           return res.json();
         })));
         const allTypes = new Set<string>();
-        this.list.forEach((pokemon) => pokemon.types.forEach((type) => allTypes.add(type.type.name)));
+        this.searchResults.forEach((pokemon) => pokemon.types.forEach((type) => allTypes.add(type.type.name)));
         this.types = Array.from(allTypes).sort();
       } catch (e: any) {
         this.error = e.message;
-        this.list = [];
+        this.searchResults = [];
       } finally {
         this.loading = false;
       }
