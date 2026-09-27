@@ -8,6 +8,7 @@ import ComparePage from "../pages/ComparePage.vue";
 import MovesPage from "../pages/MovesPage.vue";
 import EventsPage from "../pages/EventsPage.vue";
 import RaidsPage from "../pages/RaidsPage.vue";
+import CountersPage from "../pages/CountersPage.vue";
 
 const routes = [
   { path: "/", component: HomePage },
@@ -18,6 +19,7 @@ const routes = [
   { path: "/moves", component: MovesPage },
   { path: "/events", component: EventsPage },
   { path: "/raids", component: RaidsPage },
+  { path: "/counters", component: CountersPage },
   { path: "/pokemon/:id", component: PokemonDetail },
 ];
 

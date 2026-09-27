@@ -14,6 +14,7 @@ const store = usePokemonStore();
       <RouterLink to="/moves">Moves</RouterLink>
       <RouterLink to="/events">Events</RouterLink>
       <RouterLink to="/raids">Raids</RouterLink>
+      <RouterLink to="/counters">Counters</RouterLink>
       <RouterLink to="/favorites">Favoritos <span v-if="store.favorites.length" class="count">{{ store.favorites.length }}</span></RouterLink>
       <RouterLink to="/game">Game</RouterLink>
     </nav>
