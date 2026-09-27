@@ -34,9 +34,20 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
-  if (to.path !== "/account") return true;
   const { data } = await supabase.auth.getUser();
-  return data.user ? true : { path: "/auth", query: { redirect: "/account" } };
+
+  if (to.path === "/account" && !data.user) {
+    return { path: "/auth", query: { redirect: "/account" } };
+  }
+
+  if (to.path === "/auth" && data.user) {
+    const redirect = typeof to.query.redirect === "string" && to.query.redirect.startsWith("/")
+      ? to.query.redirect
+      : "/account";
+    return redirect;
+  }
+
+  return true;
 });
 
 export default router;

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { supabase } from "../lib/supabase";
 
 const router = useRouter();
+const route = useRoute();
 const mode = ref<"login" | "signup">("login");
 const email = ref("");
 const password = ref("");
@@ -17,9 +18,16 @@ async function submit() {
   loading.value = true;
   message.value = "";
   error.value = "";
-  const result = mode.value === "login"
-    ? await supabase.auth.signInWithPassword({ email: email.value, password: password.value })
-    : await supabase.auth.signUp({ email: email.value, password: password.value });
+  let result;
+  try {
+    result = mode.value === "login"
+      ? await supabase.auth.signInWithPassword({ email: email.value, password: password.value })
+      : await supabase.auth.signUp({ email: email.value, password: password.value });
+  } catch {
+    loading.value = false;
+    error.value = "Não foi possível conectar ao serviço de autenticação.";
+    return;
+  }
   loading.value = false;
   if (result.error) {
     error.value = mode.value === "login" ? "E-mail ou senha inválidos." : "Não foi possível criar a conta. Confira os dados e tente novamente.";
@@ -29,7 +37,10 @@ async function submit() {
     message.value = "Cadastro criado. Confira seu e-mail para confirmar a conta.";
     return;
   }
-  router.push("/account");
+  const redirect = typeof route.query.redirect === "string" && route.query.redirect.startsWith("/")
+    ? route.query.redirect
+    : "/account";
+  router.push(redirect);
 }
 </script>
 
