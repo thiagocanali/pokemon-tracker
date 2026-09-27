@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { usePokemonStore } from "../store/pokemon";
 import PokemonCard from "../components/PokemonCard.vue";
@@ -7,7 +7,17 @@ import PokemonCard from "../components/PokemonCard.vue";
 const store = usePokemonStore();
 const query = ref("");
 const featured = computed(() => store.list.slice(0, 4));
-const searchResults = computed(() => store.list.filter((pokemon) => pokemon.name.includes(query.value.toLowerCase())).slice(0, 5));
+const searchResults = computed(() => store.searchResults.slice(0, 5));
+
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(query, (value) => {
+  if (searchTimer) clearTimeout(searchTimer);
+  if (!value.trim()) {
+    store.searchResults = [];
+    return;
+  }
+  searchTimer = setTimeout(() => store.searchPokemon(value), 250);
+});
 
 onMounted(async () => {
   if (store.list.length === 0) await store.init();
@@ -24,12 +34,13 @@ onMounted(async () => {
         <p>Uma central inteligente para descobrir Pokémon, analisar batalhas e acompanhar tudo que importa no seu próximo encontro.</p>
         <label class="search-box">
           <span aria-hidden="true">⌕</span>
-          <input v-model="query" type="search" placeholder="Buscar Pokémon, tipo ou recurso..." />
+          <input v-model="query" type="search" placeholder="Buscar Pokémon, tipo ou recurso..." aria-label="Buscar Pokémon" />
           <kbd>/</kbd>
         </label>
         <div v-if="query" class="search-results">
           <RouterLink v-for="pokemon in searchResults" :key="pokemon.id" :to="`/pokemon/${pokemon.id}`">#{{ String(pokemon.id).padStart(3, '0') }} {{ pokemon.name }}</RouterLink>
-          <span v-if="searchResults.length === 0">Nenhum resultado local. Tente carregar outra página na database.</span>
+          <span v-if="store.loading">Consultando a Pokédex...</span>
+          <span v-else-if="searchResults.length === 0">Nenhum Pokémon encontrado para esta busca.</span>
         </div>
       </div>
       <div class="hero-orbit" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbital-core">GO</div></div>
