@@ -9,6 +9,8 @@ import MovesPage from "../pages/MovesPage.vue";
 import EventsPage from "../pages/EventsPage.vue";
 import RaidsPage from "../pages/RaidsPage.vue";
 import CountersPage from "../pages/CountersPage.vue";
+import AuthPage from "../pages/AuthPage.vue";
+import AccountPage from "../pages/AccountPage.vue";
 
 const routes = [
   { path: "/", component: HomePage },
@@ -21,6 +23,8 @@ const routes = [
   { path: "/raids", component: RaidsPage },
   { path: "/counters", component: CountersPage },
   { path: "/pokemon/:id", component: PokemonDetail },
+  { path: "/auth", component: AuthPage },
+  { path: "/account", component: AccountPage },
 ];
 
 const router = createRouter({
