@@ -1,11 +1,13 @@
 import { createRouter, createWebHistory } from "vue-router";
 import HomePage from "../pages/HomePage.vue";
+import PokemonListPage from "../pages/PokemonListPage.vue";
 import GamePage from "../pages/GamePage.vue";
 import FavoritesPage from "../pages/FavoritesPage.vue";
 import PokemonDetail from "../pages/PokemonDetail.vue";
 
 const routes = [
   { path: "/", component: HomePage },
+  { path: "/pokemon", component: PokemonListPage },
   { path: "/game", component: GamePage },
   { path: "/favorites", component: FavoritesPage },
   { path: "/pokemon/:id", component: PokemonDetail },

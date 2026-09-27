@@ -9,7 +9,7 @@ const store = usePokemonStore();
     <RouterLink class="brand" to="/"><span class="brand-mark">P</span><span>Poké<span class="brand-muted">Lab</span></span></RouterLink>
     <nav class="main-nav" aria-label="Navegação principal">
       <RouterLink to="/" exact-active-class="active">Dashboard</RouterLink>
-      <RouterLink to="/pokemon/1">Pokémon</RouterLink>
+      <RouterLink to="/pokemon">Pokémon</RouterLink>
       <RouterLink to="/favorites">Favoritos <span v-if="store.favorites.length" class="count">{{ store.favorites.length }}</span></RouterLink>
       <RouterLink to="/game">Game</RouterLink>
     </nav>
