@@ -27,8 +27,9 @@ export const usePokemonStore = defineStore("pokemon", {
   }),
   actions: {
     async init() {
-      const dark = localStorage.getItem("darkMode");
-      this.darkMode = dark === "true";
+      const dark = localStorage.getItem("darkMode") === "true";
+      this.darkMode = dark;
+      document.body.className = dark ? "dark" : "";
 
       const { data } = await supabase.auth.getUser();
       const accountFavorites = data.user?.user_metadata?.favorites;
@@ -38,8 +39,14 @@ export const usePokemonStore = defineStore("pokemon", {
         return;
       }
 
-      const fav = localStorage.getItem("favorites");
-      this.favorites = fav ? JSON.parse(fav) : [];
+      try {
+        const storedFavorites = JSON.parse(localStorage.getItem("favorites") || "[]");
+        this.favorites = Array.isArray(storedFavorites)
+          ? storedFavorites.map(Number).filter(Number.isInteger)
+          : [];
+      } catch {
+        this.favorites = [];
+      }
     },
     async loadList(page = 1, type = "") {
       this.loading = true;
