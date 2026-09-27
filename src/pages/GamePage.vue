@@ -45,6 +45,9 @@ const shufflePokemons = () => {
   initHP();
 };
 
+const capturedCount = () => store.favorites.length;
+const activeCount = () => randomPokemons.value.filter((pokemon) => !escapedPokemons.value.includes(pokemon.id)).length;
+
 onMounted(async () => {
   if (store.list.length === 0) await store.init();
   if (store.list.length === 0) await store.loadList(1);
@@ -60,9 +63,15 @@ onMounted(async () => {
         <h1>Captura livre</h1>
         <p>Continue interagindo com seus Pokémon em uma rodada rápida.</p>
       </div>
-      <button class="button button-primary" @click="shufflePokemons">Nova rodada</button>
+      <div class="game-actions">
+        <div class="game-stat"><strong>{{ activeCount() }}</strong><span>em campo</span></div>
+        <div class="game-stat"><strong>{{ capturedCount() }}</strong><span>favoritos</span></div>
+        <button class="button button-primary" @click="shufflePokemons">Nova rodada</button>
+      </div>
     </section>
-    <div class="game-grid">
+    <div v-if="store.loading" class="loading-state">Preparando encontro...</div>
+    <p v-else-if="!randomPokemons.length" class="empty-state">Não foi possível carregar Pokémon para esta rodada. Tente novamente.</p>
+    <div v-else class="game-grid">
       <article v-for="pokemon in randomPokemons" :key="pokemon.id" class="game-card" :class="{ shaking: capturingId === pokemon.id, escaped: escapedPokemons.includes(pokemon.id) }">
         <PokemonCard :pokemon="pokemon" :favorites="store.favorites" @toggleFavorite="tryCapture(pokemon.id)" />
         <div class="meter-label"><span>Energia</span><span>{{ hpMap[pokemon.id] ?? 0 }}%</span></div>
@@ -74,6 +83,10 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.game-actions { display: flex; align-items: center; gap: 12px; }
+.game-stat { display: flex; flex-direction: column; min-width: 62px; gap: 2px; }
+.game-stat strong { color: var(--accent-bright); font-size: 17px; }
+.game-stat span { color: var(--muted); font-size: 10px; }
 .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
 .game-card { position: relative; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); transition: transform .2s, border-color .2s; }
 .game-card:hover { border-color: var(--accent); transform: translateY(-3px); }

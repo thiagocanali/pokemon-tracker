@@ -57,20 +57,31 @@ export const usePokemonStore = defineStore("pokemon", {
     async searchPokemon(query: string) {
       const normalized = query.trim().toLowerCase();
       if (!normalized) {
-        await this.loadList();
+        await this.loadList(1);
         return;
       }
 
       this.loading = true;
       this.error = "";
       try {
-        const catalogRes = await fetch("https://pokeapi.co/api/v2/pokemon?limit=1025&offset=0");
-        if (!catalogRes.ok) throw new Error("Não foi possível consultar a Pokédex");
-        const catalog = await catalogRes.json();
-        const matches = catalog.results
-          .filter((pokemon: { name: string; url: string }) => pokemon.name.includes(normalized) || pokemon.url.split("/").filter(Boolean).pop() === normalized)
-          .slice(0, 20);
-        this.list = await Promise.all(matches.map((pokemon: { url: string }) => fetch(pokemon.url).then((res) => res.json())));
+        // Consultas exatas usam o endpoint direto e continuam funcionando mesmo
+        // quando a lista completa da Pokédex ainda não foi carregada.
+        const directRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(normalized)}`);
+        let matches: { url: string }[] = [];
+        if (directRes.ok) {
+          matches = [{ url: `https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(normalized)}` }];
+        } else {
+          const catalogRes = await fetch("https://pokeapi.co/api/v2/pokemon?limit=1302&offset=0");
+          if (!catalogRes.ok) throw new Error("Não foi possível consultar a Pokédex");
+          const catalog = await catalogRes.json();
+          matches = catalog.results
+            .filter((pokemon: { name: string; url: string }) => pokemon.name.includes(normalized) || pokemon.url.split("/").filter(Boolean).pop() === normalized)
+            .slice(0, 20);
+        }
+        this.list = await Promise.all(matches.map((pokemon) => fetch(pokemon.url).then((res) => {
+          if (!res.ok) throw new Error("Não foi possível carregar os dados do Pokémon");
+          return res.json();
+        })));
         const allTypes = new Set<string>();
         this.list.forEach((pokemon) => pokemon.types.forEach((type) => allTypes.add(type.type.name)));
         this.types = Array.from(allTypes).sort();
