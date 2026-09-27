@@ -5,6 +5,7 @@ import GamePage from "../pages/GamePage.vue";
 import FavoritesPage from "../pages/FavoritesPage.vue";
 import PokemonDetail from "../pages/PokemonDetail.vue";
 import ComparePage from "../pages/ComparePage.vue";
+import MovesPage from "../pages/MovesPage.vue";
 
 const routes = [
   { path: "/", component: HomePage },
@@ -12,6 +13,7 @@ const routes = [
   { path: "/game", component: GamePage },
   { path: "/favorites", component: FavoritesPage },
   { path: "/compare", component: ComparePage },
+  { path: "/moves", component: MovesPage },
   { path: "/pokemon/:id", component: PokemonDetail },
 ];
 
