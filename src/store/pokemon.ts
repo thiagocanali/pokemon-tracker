@@ -50,18 +50,10 @@ export const usePokemonStore = defineStore("pokemon", {
       const accountFavorites = data.user?.user_metadata?.favorites;
       if (Array.isArray(accountFavorites)) {
         this.favorites = accountFavorites.map(Number).filter(Number.isInteger);
-        localStorage.setItem("favorites", JSON.stringify(this.favorites));
         return;
       }
 
-      try {
-        const storedFavorites = JSON.parse(localStorage.getItem("favorites") || "[]");
-        this.favorites = Array.isArray(storedFavorites)
-          ? storedFavorites.map(Number).filter(Number.isInteger)
-          : [];
-      } catch {
-        this.favorites = [];
-      }
+      this.favorites = [];
     },
     async loadList(page = 1, type = "") {
       this.loading = true;
@@ -138,14 +130,12 @@ export const usePokemonStore = defineStore("pokemon", {
         this.favorites.push(id);
       }
 
-      const serialized = JSON.stringify(this.favorites);
-      localStorage.setItem("favorites", serialized);
-
       const { data } = await supabase.auth.getUser();
       if (data.user) {
-        await supabase.auth.updateUser({
+        const { error } = await supabase.auth.updateUser({
           data: { favorites: this.favorites },
         });
+        if (error) this.error = "Não foi possível sincronizar seus favoritos.";
       }
     },
     toggleDarkMode() {
