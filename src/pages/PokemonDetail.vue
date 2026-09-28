@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import { usePokemonStore } from "../store/pokemon";
 import type { Pokemon } from "../store/pokemon";
@@ -10,6 +10,7 @@ const pokemon = ref<Pokemon | null>(null);
 const captureProgress = ref(0);
 const capturing = ref(false);
 const captureMessage = ref("");
+const detailError = ref("");
 
 const totalStats = computed(() => pokemon.value?.stats?.reduce((total, stat) => total + stat.base_stat, 0) ?? 0);
 const isFavorite = computed(() => pokemon.value ? store.favorites.includes(pokemon.value.id) : false);
@@ -31,9 +32,18 @@ const tryCapture = () => {
   }, 350);
 };
 
-onMounted(async () => {
-  pokemon.value = await store.getPokemon(route.params.id as string);
-});
+const loadPokemon = async (id: string) => {
+  pokemon.value = null;
+  detailError.value = "";
+  try {
+    pokemon.value = await store.getPokemon(id);
+  } catch {
+    detailError.value = "Não encontramos esse Pokémon na Pokédex. Confira o nome ou número e tente novamente.";
+  }
+};
+
+onMounted(() => loadPokemon(route.params.id as string));
+watch(() => route.params.id, (id) => loadPokemon(id as string));
 </script>
 
 <template>
@@ -74,7 +84,12 @@ onMounted(async () => {
 
     <section class="data-section abilities-section"><div class="section-heading"><div><span class="eyebrow">Características</span><h2>Habilidades</h2></div></div><div class="ability-list"><span v-for="ability in pokemon.abilities" :key="ability.ability.name">{{ ability.ability.name.replace('-', ' ') }}</span></div></section>
   </main>
-  <main v-else class="loading-state page-shell"><span class="eyebrow">Consultando database</span><h1>Carregando Pokémon...</h1></main>
+  <main v-else class="loading-state page-shell">
+    <span class="eyebrow">Consultando database</span>
+    <h1>{{ detailError ? "Pokémon não encontrado" : "Carregando Pokémon..." }}</h1>
+    <p v-if="detailError" class="detail-error">{{ detailError }}</p>
+    <RouterLink v-if="detailError" class="button button-primary" to="/pokemon">Voltar para a database</RouterLink>
+  </main>
 </template>
 
 <style scoped>
