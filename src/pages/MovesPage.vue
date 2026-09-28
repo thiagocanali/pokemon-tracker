@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 type Move = { name: string; type: string; category: "Fast" | "Charged"; power: number; energy: number; dps: string; eps: string; users: number };
 
 const query = ref("");
 const category = ref("Todos");
 const type = ref("Todos");
+const pokemonMoveNames = ref<string[]>([]);
+const pokemonSearchLoading = ref(false);
+const pokemonSearchMessage = ref("");
 const moves: Move[] = [
   { name: "Shadow Claw", type: "Ghost", category: "Fast", power: 6, energy: 4, dps: "15.4", eps: "8.6", users: 48 },
   { name: "Psycho Cut", type: "Psychic", category: "Fast", power: 3, energy: 9, dps: "10.0", eps: "15.0", users: 24 },
@@ -14,13 +17,47 @@ const moves: Move[] = [
   { name: "Psychic", type: "Psychic", category: "Charged", power: 90, energy: 55, dps: "32.1", eps: "1.8", users: 18 },
   { name: "Wild Charge", type: "Electric", category: "Charged", power: 100, energy: 45, dps: "41.7", eps: "2.2", users: 22 },
 ];
-const filteredMoves = computed(() => moves.filter((move) => move.name.toLowerCase().includes(query.value.toLowerCase()) && (category.value === "Todos" || move.category === category.value) && (type.value === "Todos" || move.type === type.value)));
+const filteredMoves = computed(() => {
+  const normalized = query.value.trim().toLowerCase();
+  if (pokemonMoveNames.value.length) {
+    return pokemonMoveNames.value.map((name) => {
+      const knownMove = moves.find((move) => move.name.toLowerCase().replaceAll(" ", "-") === name);
+      return knownMove ?? { name: name.replaceAll("-", " "), type: "—", category: "Fast", power: 0, energy: 0, dps: "—", eps: "—", users: 0 };
+    }).filter((move) => category.value === "Todos" || move.category === category.value).filter((move) => type.value === "Todos" || move.type === type.value);
+  }
+  return moves.filter((move) => move.name.toLowerCase().includes(normalized) && (category.value === "Todos" || move.category === category.value) && (type.value === "Todos" || move.type === type.value));
+});
+
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(query, (value) => {
+  window.clearTimeout(searchTimer);
+  pokemonMoveNames.value = [];
+  pokemonSearchMessage.value = "";
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return;
+
+  searchTimer = window.setTimeout(async () => {
+    pokemonSearchLoading.value = true;
+    try {
+      const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(normalized)}`);
+      if (response.ok) {
+        const pokemon = await response.json();
+        pokemonMoveNames.value = pokemon.moves.map((entry: { move: { name: string } }) => entry.move.name);
+        pokemonSearchMessage.value = `Moves que ${pokemon.name} pode aprender`;
+      }
+    } catch {
+      // A busca local continua disponível mesmo quando a API não responde.
+    } finally {
+      pokemonSearchLoading.value = false;
+    }
+  }, 300);
+});
 </script>
 
 <template>
   <main class="moves-page page-shell">
     <section class="page-intro"><div><p class="eyebrow">DATABASE / MOVES</p><h1>Move Database</h1><p>Explore ataques, eficiência e os Pokémon que podem aprendê-los.</p></div><div class="result-count"><strong>{{ filteredMoves.length }}</strong><span>moves encontrados</span></div></section>
-    <section class="tool-panel"><label class="search-field"><span>⌕</span><input v-model="query" placeholder="Buscar por nome do move..." aria-label="Buscar move" /></label><select v-model="category" aria-label="Filtrar categoria"><option>Todos</option><option>Fast</option><option>Charged</option></select><select v-model="type" aria-label="Filtrar tipo"><option>Todos</option><option>Ghost</option><option>Psychic</option><option>Dragon</option><option>Steel</option><option>Electric</option></select></section>
+    <section class="tool-panel"><label class="search-field"><span>⌕</span><input v-model="query" placeholder="Buscar move ou Pokémon..." aria-label="Buscar move ou Pokémon" /></label><select v-model="category" aria-label="Filtrar categoria"><option>Todos</option><option>Fast</option><option>Charged</option></select><select v-model="type" aria-label="Filtrar tipo"><option>Todos</option><option>Ghost</option><option>Psychic</option><option>Dragon</option><option>Steel</option><option>Electric</option></select></section><p v-if="pokemonSearchLoading" class="search-status">Consultando moves na Pokédex...</p><p v-else-if="pokemonSearchMessage" class="search-status">{{ pokemonSearchMessage }}</p>
     <section class="moves-table" aria-label="Lista de moves"><div class="table-head"><span>Move</span><span>Tipo</span><span>Classe</span><span>Power</span><span>Energy</span><span>DPS / EPS</span><span>Pokémon</span></div><article v-for="move in filteredMoves" :key="move.name" class="move-row"><div class="move-name"><span class="move-icon" :class="move.type.toLowerCase()"></span><strong>{{ move.name }}</strong></div><span class="type-pill" :class="move.type.toLowerCase()">{{ move.type }}</span><span class="class-label">{{ move.category }}</span><strong>{{ move.power }}</strong><span>{{ move.energy }}</span><span class="efficiency"><b>{{ move.dps }}</b> <small>/ {{ move.eps }}</small></span><span class="users">{{ move.users }} Pokémon <span>→</span></span></article><p v-if="!filteredMoves.length" class="empty-state">Nenhum move encontrado para estes filtros.</p></section>
   </main>
 </template>
