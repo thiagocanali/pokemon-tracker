@@ -7,6 +7,7 @@ const query = ref("");
 const category = ref("Todos");
 const type = ref("Todos");
 const pokemonMoveNames = ref<string[]>([]);
+const pokemonBestMoves = ref<Move[]>([]);
 const pokemonSearchLoading = ref(false);
 const pokemonSearchMessage = ref("");
 const moves: Move[] = [
@@ -20,10 +21,9 @@ const moves: Move[] = [
 const filteredMoves = computed(() => {
   const normalized = query.value.trim().toLowerCase();
   if (pokemonMoveNames.value.length) {
-    return pokemonMoveNames.value.map((name) => {
-      const knownMove = moves.find((move) => move.name.toLowerCase().replaceAll(" ", "-") === name);
-      return knownMove ?? { name: name.replaceAll("-", " "), type: "—", category: "Fast", power: 0, energy: 0, dps: "—", eps: "—", users: 0 };
-    }).filter((move) => category.value === "Todos" || move.category === category.value).filter((move) => type.value === "Todos" || move.type === type.value);
+    return pokemonBestMoves.value
+      .filter((move) => category.value === "Todos" || move.category === category.value)
+      .filter((move) => type.value === "Todos" || move.type === type.value);
   }
   return moves.filter((move) => move.name.toLowerCase().includes(normalized) && (category.value === "Todos" || move.category === category.value) && (type.value === "Todos" || move.type === type.value));
 });
@@ -42,8 +42,29 @@ watch(query, (value) => {
       const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(normalized)}`);
       if (response.ok) {
         const pokemon = await response.json();
-        pokemonMoveNames.value = pokemon.moves.map((entry: { move: { name: string } }) => entry.move.name);
-        pokemonSearchMessage.value = `Moves que ${pokemon.name} pode aprender`;
+        const moveEntries = pokemon.moves as Array<{ move: { name: string; url: string } }>;
+        const details = await Promise.all(moveEntries.map(async ({ move }) => {
+          const moveResponse = await fetch(move.url);
+          if (!moveResponse.ok) return null;
+          const detail = await moveResponse.json();
+          const localizedName = detail.names?.find((entry: { language: { name: string } }) => entry.language.name === "en")?.name ?? move.name.replaceAll("-", " ");
+          return {
+            name: localizedName,
+            type: detail.type?.name ? detail.type.name.charAt(0).toUpperCase() + detail.type.name.slice(1) : "—",
+            category: detail.damage_class?.name === "status" ? "Fast" : detail.power >= 80 ? "Charged" : "Fast",
+            power: detail.power ?? 0,
+            energy: detail.pp ?? 0,
+            dps: detail.power ? String(detail.power) : "—",
+            eps: detail.accuracy ? String(detail.accuracy) : "—",
+            users: 0,
+          } satisfies Move;
+        }));
+        pokemonMoveNames.value = moveEntries.map(({ move }) => move.name);
+        const availableMoves = details.filter((move): move is Move => Boolean(move));
+        const bestFast = availableMoves.filter((move) => move.category === "Fast").sort((a, b) => b.power - a.power).slice(0, 3);
+        const bestCharged = availableMoves.filter((move) => move.category === "Charged").sort((a, b) => b.power - a.power).slice(0, 9);
+        pokemonBestMoves.value = [...bestFast, ...bestCharged];
+        pokemonSearchMessage.value = `Melhores moves de ${pokemon.name} por força`;
       }
     } catch {
       // A busca local continua disponível mesmo quando a API não responde.
