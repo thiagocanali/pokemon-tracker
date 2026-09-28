@@ -53,24 +53,34 @@ function clearTeam() {
 }
 
 async function loadSavedTeams() {
-  const { data: auth } = await supabase.auth.getUser();
-  userId.value = auth.user?.id ?? null;
-  if (!userId.value) return;
+  if (!supabase) return;
 
-  const { data, error } = await supabase
-    .from("saved_teams")
-    .select("id, name, pokemon_ids")
-    .order("updated_at", { ascending: false });
-  if (!error && data) {
-    savedTeams.value = data.map((saved) => ({
-      id: saved.id,
-      name: saved.name,
-      pokemon_ids: Array.isArray(saved.pokemon_ids) ? saved.pokemon_ids.map(Number).filter(Number.isInteger) : [],
-    }));
+  try {
+    const { data: auth } = await supabase.auth.getUser();
+    userId.value = auth.user?.id ?? null;
+    if (!userId.value) return;
+
+    const { data, error } = await supabase
+      .from("saved_teams")
+      .select("id, name, pokemon_ids")
+      .order("updated_at", { ascending: false });
+    if (!error && data) {
+      savedTeams.value = data.map((saved) => ({
+        id: saved.id,
+        name: saved.name,
+        pokemon_ids: Array.isArray(saved.pokemon_ids) ? saved.pokemon_ids.map(Number).filter(Number.isInteger) : [],
+      }));
+    }
+  } catch {
+    message.value = "Não foi possível carregar seus times salvos agora.";
   }
 }
 
 async function saveTeam() {
+  if (!supabase) {
+    message.value = "Configure a autenticação Supabase para salvar times na nuvem.";
+    return;
+  }
   if (!userId.value) {
     message.value = "Entre na sua conta para salvar times.";
     return;
@@ -82,14 +92,19 @@ async function saveTeam() {
   saving.value = true;
   message.value = "";
   const payload = { name: teamName.value.trim() || "Meu time", pokemon_ids: team.value.map(({ id }) => id), updated_at: new Date().toISOString() };
-  const { data, error } = await supabase.from("saved_teams").insert({ ...payload, user_id: userId.value }).select("id, name, pokemon_ids").single();
-  if (error) {
+  try {
+    const { data, error } = await supabase.from("saved_teams").insert({ ...payload, user_id: userId.value }).select("id, name, pokemon_ids").single();
+    if (error) {
+      message.value = "Não foi possível salvar o time agora.";
+    } else if (data) {
+      savedTeams.value.unshift({ id: data.id, name: data.name, pokemon_ids: data.pokemon_ids as number[] });
+      message.value = "Time salvo com sucesso.";
+    }
+  } catch {
     message.value = "Não foi possível salvar o time agora.";
-  } else if (data) {
-    savedTeams.value.unshift({ id: data.id, name: data.name, pokemon_ids: data.pokemon_ids as number[] });
-    message.value = "Time salvo com sucesso.";
+  } finally {
+    saving.value = false;
   }
-  saving.value = false;
 }
 
 async function loadTeam(saved: { name: string; pokemon_ids: number[] }) {
@@ -100,10 +115,18 @@ async function loadTeam(saved: { name: string; pokemon_ids: number[] }) {
 }
 
 async function deleteTeam(id: string) {
-  const { error } = await supabase.from("saved_teams").delete().eq("id", id);
-  if (!error) {
-    savedTeams.value = savedTeams.value.filter((saved) => saved.id !== id);
-    message.value = "Time excluído.";
+  if (!supabase) return;
+
+  try {
+    const { error } = await supabase.from("saved_teams").delete().eq("id", id);
+    if (!error) {
+      savedTeams.value = savedTeams.value.filter((saved) => saved.id !== id);
+      message.value = "Time excluído.";
+    } else {
+      message.value = "Não foi possível excluir o time agora.";
+    }
+  } catch {
+    message.value = "Não foi possível excluir o time agora.";
   }
 }
 
@@ -111,6 +134,8 @@ let authSubscription: { unsubscribe: () => void } | null = null;
 
 onMounted(() => {
   loadSavedTeams();
+  if (!supabase) return;
+
   const { data } = supabase.auth.onAuthStateChange((_event, session) => {
     userId.value = session?.user?.id ?? null;
     if (userId.value) loadSavedTeams();
@@ -127,7 +152,7 @@ onUnmounted(() => {
 <template>
   <main class="page-shell team-page">
     <section class="page-intro">
-      <div><p class="eyebrow">BATTLE LAB / TEAM BUILDER</p><h1>Monte seu time ideal.</h1><p class="intro-copy">Combine até seis Pokémon, confira a cobertura de tipos e prepare sua próxima batalha.</p></div>
+      <div><p class="eyebrow">BATTLE LAB / TEAM BUILDER</p><h1>Monte seu time.</h1><p class="intro-copy">Combine até seis Pokémon e consulte a cobertura de tipos gerais. Análise de batalhas GO ainda não está conectada.</p></div>
       <RouterLink class="ghost-button" to="/pokemon">Abrir Pokédex</RouterLink>
     </section>
 
@@ -147,7 +172,7 @@ onUnmounted(() => {
       </div>
 
       <aside class="side-column">
-        <section class="panel summary-panel"><p class="section-kicker">ANÁLISE RÁPIDA</p><h2>Como está seu time?</h2><div class="metric"><span>Tipos cobertos</span><strong>{{ uniqueTypes.size }}</strong></div><div class="metric"><span>Força média</span><strong>{{ averagePower || "—" }}</strong></div><div class="coverage"><span v-for="type in uniqueTypes" :key="type" class="type-pill">{{ type }}</span><span v-if="!uniqueTypes.size" class="muted">Adicione Pokémon para analisar.</span></div></section>
+        <section class="panel summary-panel"><p class="section-kicker">DADOS GERAIS</p><h2>Composição do time</h2><div class="metric"><span>Tipos cobertos</span><strong>{{ uniqueTypes.size }}</strong></div><div class="metric"><span>Média dos stats base</span><strong>{{ averagePower || "—" }}</strong></div><div class="coverage"><span v-for="type in uniqueTypes" :key="type" class="type-pill">{{ type }}</span><span v-if="!uniqueTypes.size" class="muted">Adicione Pokémon para analisar.</span></div></section>
         <section class="panel tips-panel"><p class="section-kicker">DICAS DE COMPOSIÇÃO</p><h2>Equilibre seu roster</h2><ul><li>Combine atacantes rápidos com Pokémon resistentes.</li><li>Busque variedade de tipos para cobrir mais fraquezas.</li><li>Use a página Counters para validar matchups difíceis.</li></ul></section>
       </aside>
     </section>

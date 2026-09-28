@@ -1,33 +1,12 @@
 import { defineStore } from "pinia";
 import { supabase } from "../lib/supabase";
+import { pokeApiPokemonProvider } from "../data/providers/pokeapi";
+import type { Pokemon } from "../data/providers/contracts";
 
-export interface Pokemon {
-  id: number;
-  name: string;
-  sprites: {
-    front_default: string;
-    back_default?: string;
-  };
-  types: { type: { name: string } }[];
-  height?: number;
-  weight?: number;
-  stats?: { stat: { name: string }; base_stat: number }[];
-  abilities?: { ability: { name: string } }[];
-}
+export type { Pokemon } from "../data/providers/contracts";
 
-const API_BASE = "https://pokeapi.co/api/v2";
-const responseCache = new Map<string, unknown>();
-
-async function fetchJson<T>(path: string): Promise<T> {
-  const cached = responseCache.get(path);
-  if (cached) return cached as T;
-
-  const response = await fetch(`${API_BASE}${path}`);
-  if (!response.ok) throw new Error("Não foi possível consultar a Pokédex");
-  const data = (await response.json()) as T;
-  responseCache.set(path, data);
-  return data;
-}
+let storeInitialization: Promise<void> | null = null;
+let storeInitialized = false;
 
 export const usePokemonStore = defineStore("pokemon", {
   state: () => ({
@@ -35,43 +14,58 @@ export const usePokemonStore = defineStore("pokemon", {
     searchResults: [] as Pokemon[],
     favorites: [] as number[],
     types: [] as string[],
+    totalCount: 0,
     loading: false,
     error: "",
     searchRequestId: 0,
-    darkMode: false,
+    darkMode: true,
   }),
   actions: {
-    async init() {
-      const dark = localStorage.getItem("darkMode") === "true";
-      this.darkMode = dark;
-      document.body.className = dark ? "dark" : "";
+    init() {
+      if (storeInitialized) return Promise.resolve();
+      if (storeInitialization) return storeInitialization;
 
-      const { data } = await supabase.auth.getUser();
-      const accountFavorites = data.user?.user_metadata?.favorites;
-      if (Array.isArray(accountFavorites)) {
+      storeInitialization = (async () => {
+        const dark = localStorage.getItem("darkMode") !== "false";
+        this.darkMode = dark;
+        document.body.classList.toggle("dark", dark);
+
+        const localFavorites = localStorage.getItem("favorites");
+        try {
+          const parsedFavorites = localFavorites ? JSON.parse(localFavorites) : [];
+          this.favorites = Array.isArray(parsedFavorites) ? parsedFavorites.map(Number).filter(Number.isInteger) : [];
+        } catch {
+          this.favorites = [];
+        }
+        if (!supabase) return;
+        await this.syncFavoritesFromAccount();
+      })().finally(() => {
+        storeInitialized = true;
+        storeInitialization = null;
+      });
+
+      return storeInitialization;
+    },
+    async syncFavoritesFromAccount() {
+      if (!supabase) return;
+      try {
+        const { data } = await supabase.auth.getUser();
+        const accountFavorites = data.user?.user_metadata?.favorites;
+        if (!Array.isArray(accountFavorites)) return;
         this.favorites = accountFavorites.map(Number).filter(Number.isInteger);
+        localStorage.setItem("favorites", JSON.stringify(this.favorites));
+      } catch {
         return;
       }
-
-      this.favorites = [];
     },
     async loadList(page = 1, type = "") {
       this.loading = true;
       this.error = "";
       try {
-        const offset = (page - 1) * 20;
-        const data = await fetchJson<{ results: { name: string; url: string }[] }>(`/pokemon?limit=20&offset=${offset}`);
-        const details: Pokemon[] = await Promise.all(
-          data.results.map((pokemon) => fetchJson<Pokemon>(`/pokemon/${pokemon.name}`))
-        );
-        this.list = type
-          ? details.filter(p => p.types.some(t => t.type.name === type))
-          : details;
-
-        // Atualiza tipos únicos
-        const allTypes = new Set<string>();
-        details.forEach(p => p.types.forEach(t => allTypes.add(t.type.name)));
-        this.types = Array.from(allTypes).sort();
+        const result = await pokeApiPokemonProvider.list(page, type);
+        this.list = result.pokemon;
+        this.types = result.types;
+        this.totalCount = result.totalCount;
       } catch (e: any) {
         this.error = e.message;
       } finally {
@@ -80,27 +74,17 @@ export const usePokemonStore = defineStore("pokemon", {
     },
     async searchPokemon(query: string) {
       const normalized = query.trim().toLowerCase();
+      const requestId = ++this.searchRequestId;
       if (!normalized) {
         this.searchResults = [];
+        this.loading = false;
         return;
       }
 
-      const requestId = ++this.searchRequestId;
       this.loading = true;
       this.error = "";
       try {
-        // Consultas exatas usam o endpoint direto e continuam funcionando mesmo
-        // quando a lista completa da Pokédex ainda não foi carregada.
-        let results: Pokemon[] = [];
-        try {
-          results = [await fetchJson<Pokemon>(`/pokemon/${encodeURIComponent(normalized)}`)];
-        } catch {
-          const catalog = await fetchJson<{ results: { name: string; url: string }[] }>("/pokemon?limit=2000&offset=0");
-          const matches = catalog.results
-            .filter((pokemon) => pokemon.name.includes(normalized) || pokemon.url.split("/").filter(Boolean).pop() === normalized)
-            .slice(0, 20);
-          results = await Promise.all(matches.map((pokemon) => fetchJson<Pokemon>(`/pokemon/${pokemon.name}`)));
-        }
+        const results = await pokeApiPokemonProvider.search(normalized);
         if (requestId !== this.searchRequestId) return;
         this.searchResults = results;
         const allTypes = new Set<string>();
@@ -115,10 +99,10 @@ export const usePokemonStore = defineStore("pokemon", {
       }
     },
 
-    async getPokemon(id: string) {
+    async getPokemon(id: string | number) {
       this.loading = true;
       try {
-        return await fetchJson<Pokemon>(`/pokemon/${encodeURIComponent(id)}`);
+        return await pokeApiPokemonProvider.get(id);
       } finally {
         this.loading = false;
       }
@@ -130,18 +114,24 @@ export const usePokemonStore = defineStore("pokemon", {
         this.favorites.push(id);
       }
 
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
+      localStorage.setItem("favorites", JSON.stringify(this.favorites));
+      if (!supabase) return;
+
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!data.user) return;
         const { error } = await supabase.auth.updateUser({
           data: { favorites: this.favorites },
         });
         if (error) this.error = "Não foi possível sincronizar seus favoritos.";
+      } catch {
+        this.error = "Favorito salvo neste dispositivo; não foi possível sincronizar agora.";
       }
     },
     toggleDarkMode() {
       this.darkMode = !this.darkMode;
       localStorage.setItem("darkMode", String(this.darkMode));
-      document.body.className = this.darkMode ? "dark" : "";
+      document.body.classList.toggle("dark", this.darkMode);
     }
   }
 });

@@ -1,27 +1,47 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { usePokemonStore } from "../store/pokemon";
 import PokemonCard from "../components/PokemonCard.vue";
 
 const store = usePokemonStore();
 const query = ref("");
+const searchInput = ref<HTMLInputElement | null>(null);
 const featured = computed(() => store.list.slice(0, 4));
 const searchResults = computed(() => store.searchResults.slice(0, 5));
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
+function handleSearchShortcut(event: KeyboardEvent) {
+  const target = event.target as HTMLElement | null;
+  const isTyping = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable;
+  if (event.key === "/" && !isTyping && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault();
+    searchInput.value?.focus();
+  }
+  if (event.key === "Escape" && document.activeElement === searchInput.value) {
+    query.value = "";
+    searchInput.value?.blur();
+  }
+}
+
 watch(query, (value) => {
   if (searchTimer) clearTimeout(searchTimer);
   if (!value.trim()) {
-    store.searchResults = [];
+    void store.searchPokemon("");
     return;
   }
   searchTimer = setTimeout(() => store.searchPokemon(value), 250);
 });
 
 onMounted(async () => {
+  window.addEventListener("keydown", handleSearchShortcut);
   if (store.list.length === 0) await store.init();
   if (store.list.length === 0) await store.loadList(1);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", handleSearchShortcut);
+  if (searchTimer) clearTimeout(searchTimer);
 });
 </script>
 
@@ -34,7 +54,7 @@ onMounted(async () => {
         <p>Uma central inteligente para descobrir Pokémon, analisar batalhas e acompanhar tudo que importa no seu próximo encontro.</p>
         <label class="search-box">
           <span aria-hidden="true">⌕</span>
-          <input v-model="query" type="search" placeholder="Buscar Pokémon, tipo ou recurso..." aria-label="Buscar Pokémon" />
+          <input ref="searchInput" v-model="query" type="search" placeholder="Buscar Pokémon por nome ou número..." aria-label="Buscar Pokémon por nome ou número" />
           <kbd>/</kbd>
         </label>
         <div v-if="query" class="search-results">
@@ -47,15 +67,16 @@ onMounted(async () => {
     </section>
 
     <section class="section-block">
-      <div class="section-heading"><div><span class="eyebrow">Visão geral</span><h2>O que está acontecendo</h2></div><span class="status-pill"><i></i> Dados sincronizados</span></div>
+      <div class="section-heading"><div><span class="eyebrow">Estado das fontes</span><h2>Dados disponíveis</h2></div><span class="status-pill">PokéAPI · dados gerais</span></div>
       <div class="insight-grid">
-        <article class="insight-card highlight"><div class="card-icon">◈</div><span class="card-label">Evento em destaque</span><h3>Temporada: Céus em mudança</h3><p>Prepare sua equipe para os próximos encontros e bônus de captura.</p><RouterLink to="/pokemon/25">Explorar detalhes <span>→</span></RouterLink></article>
-        <article class="insight-card"><div class="card-icon violet">✦</div><span class="card-label">Recomendação do dia</span><h3>Monte seu time ideal</h3><p>Compare stats e tipos para encontrar o melhor counter.</p><RouterLink to="/favorites">Abrir favoritos <span>→</span></RouterLink></article>
-        <article class="insight-card"><div class="card-icon blue">⌁</div><span class="card-label">Atalho rápido</span><h3>Database de Pokémon</h3><p>Consulte informações, evoluções e formas em um só lugar.</p><RouterLink to="/pokemon/1">Ver database <span>→</span></RouterLink></article>
+        <article class="insight-card highlight"><div class="card-icon">◈</div><span class="card-label">Eventos e temporadas</span><h3>Fonte não conectada</h3><p>Não há calendário GO verificado disponível nesta versão.</p><RouterLink to="/events">Abrir eventos <span>→</span></RouterLink></article>
+        <article class="insight-card"><div class="card-icon violet">✦</div><span class="card-label">Batalhas e rankings</span><h3>Dados GO indisponíveis</h3><p>Rankings PvP, raids e recomendações dependem de providers próprios.</p><RouterLink to="/counters">Ver análise de tipos <span>→</span></RouterLink></article>
+        <article class="insight-card"><div class="card-icon blue">⌁</div><span class="card-label">Pokédex geral</span><h3>PokéAPI conectada</h3><p>Dados gerais de Pokémon, sem estatísticas específicas de Pokémon GO.</p><RouterLink to="/pokemon">Abrir database <span>→</span></RouterLink></article>
       </div>
     </section>
+    <p v-if="store.error" class="error-message" role="alert">{{ store.error }}</p>
 
-    <section class="section-block"><div class="section-heading"><div><span class="eyebrow">Para começar</span><h2>Pokémon em destaque</h2></div><RouterLink class="text-link" to="/pokemon/1">Ver todos <span>→</span></RouterLink></div><div class="featured-grid"><PokemonCard v-for="pokemon in featured" :key="pokemon.id" :pokemon="pokemon" :favorites="store.favorites" @toggleFavorite="store.toggleFavorite(pokemon.id)" /></div></section>
+    <section class="section-block"><div class="section-heading"><div><span class="eyebrow">Pokédex geral</span><h2>Consulta rápida</h2></div><RouterLink class="text-link" to="/pokemon">Ver todos <span>→</span></RouterLink></div><div class="featured-grid"><PokemonCard v-for="pokemon in featured" :key="pokemon.id" :pokemon="pokemon" :favorites="store.favorites" @toggleFavorite="store.toggleFavorite(pokemon.id)" /></div></section>
 
     <section class="tool-strip"><div><span class="eyebrow">Ferramentas para treinadores</span><h2>Tenha clareza antes da próxima batalha.</h2></div><RouterLink class="button button-primary" to="/game">Abrir área Game</RouterLink></section>
   </main>

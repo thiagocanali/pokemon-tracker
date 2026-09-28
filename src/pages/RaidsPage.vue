@@ -1,59 +1,13 @@
-<script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import { RouterLink } from "vue-router";
-import { usePokemonStore, type Pokemon } from "../store/pokemon";
-
-const store = usePokemonStore();
-const query = ref("");
-const searchedPokemon = ref<Pokemon | null>(null);
-const searchLoading = ref(false);
-
-const activeFilter = ref("Todos");
-const filters = ["Todos", "5 estrelas", "Mega", "Sombrios"];
-const raids = [
-  { name: "Zacian", tier: "5 estrelas", type: "Fairy / Steel", window: "Até 08 out", status: "Ativo", accent: "#c79cff", sprite: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/888.gif" },
-  { name: "Mega Gengar", tier: "Mega", type: "Ghost / Poison", window: "Até 15 out", status: "Ativo", accent: "#9e7bff", sprite: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/94.gif" },
-  { name: "Darkrai", tier: "Sombrios", type: "Dark", window: "Começa em 09 out", status: "Em breve", accent: "#6971d6", sprite: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/491.gif" },
-  { name: "Mega Blaziken", tier: "Mega", type: "Fire / Fighting", window: "Até 15 out", status: "Ativo", accent: "#ff9976", sprite: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/257.gif" },
-];
-const visibleRaids = computed(() => {
-  const filtered = activeFilter.value === "Todos" ? raids : raids.filter(raid => raid.tier === activeFilter.value);
-  if (!searchedPokemon.value) return filtered;
-  const searchedName = searchedPokemon.value.name.toLowerCase();
-  return filtered.filter((raid) => raid.name.toLowerCase().includes(searchedName));
-});
-let searchTimer: ReturnType<typeof setTimeout> | undefined;
-watch(query, (value) => {
-  window.clearTimeout(searchTimer);
-  searchedPokemon.value = null;
-  const normalized = value.trim();
-  if (!normalized) return;
-  searchTimer = window.setTimeout(async () => {
-    searchLoading.value = true;
-    try { searchedPokemon.value = await store.getPokemon(normalized); } catch { searchedPokemon.value = null; }
-    searchLoading.value = false;
-  }, 300);
-});
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <main class="raids-page">
     <section class="page-heading">
-      <div><p class="eyebrow">INTELIGÊNCIA DE RAIDS</p><h1>Current Raids</h1><p class="lede">Acompanhe os chefes ativos, prepare seu time e entre na batalha com vantagem.</p></div>
-      <div class="heading-status"><span class="live-dot"></span><span>Atualizado agora</span><small>Fonte: PokéLab database</small></div>
+      <div><p class="eyebrow">INTELIGÊNCIA DE RAIDS</p><h1>Raids</h1><p class="lede">A rotação e os counters só serão exibidos quando uma fonte de Pokémon GO estiver conectada.</p></div>
+      <div class="heading-status"><span class="live-dot"></span><span>Sem fonte conectada</span><small>Dados não verificados</small></div>
     </section>
 
-    <section class="hero-raid">
-      <div class="hero-copy"><span class="pill">DESTAQUE DA SEMANA</span><h2>Zacian retorna às raids</h2><p>O lendário Pokémon Guerreiro está de volta. Encontre os melhores counters e maximize seus Premier Balls.</p><RouterLink to="/pokemon/888" class="primary-action">Ver análise completa <span>→</span></RouterLink></div>
-      <div class="hero-orbit"><div class="orbit-ring"></div><img :src="raids[0].sprite" alt="Zacian" /></div>
-      <div class="hero-meta"><div><strong>5</strong><span>estrelas</span></div><div><strong>08</strong><span>outubro</span></div><div><strong>20</strong><span>participantes</span></div></div>
-    </section>
-
-    <section class="toolbar"><div><p class="section-label">RAID BOSS ATUAIS</p><h2>Escolha seu próximo desafio</h2></div><div class="filters" role="tablist"><button v-for="filter in filters" :key="filter" :class="{ active: activeFilter === filter }" @click="activeFilter = filter">{{ filter }}</button></div></section>
-    <label class="raid-search"><span aria-hidden="true">⌕</span><input v-model="query" type="search" placeholder="Buscar um Pokémon para preparar a raid" aria-label="Buscar Pokémon para raid"/><span v-if="searchLoading" role="status">Consultando...</span></label>
-    <p v-if="query && !searchLoading && !searchedPokemon" class="raid-empty">Pokémon não encontrado. Tente o nome em inglês ou o número da Pokédex.</p>
-    <section v-if="visibleRaids.length" class="raid-grid"><article v-for="raid in visibleRaids" :key="raid.name" class="raid-card"><div class="card-top"><span class="raid-tier" :style="{ color: raid.accent }">{{ raid.tier }}</span><span :class="['raid-status', { upcoming: raid.status !== 'Ativo' }]">{{ raid.status }}</span></div><div class="pokemon-art" :style="{ '--raid-accent': raid.accent }"><img :src="raid.sprite" :alt="raid.name" /></div><h3>{{ raid.name }}</h3><p>{{ raid.type }}</p><div class="card-bottom"><span>{{ raid.window }}</span><RouterLink :to="`/pokemon/${raid.name === 'Zacian' ? 888 : raid.name === 'Mega Gengar' ? 94 : raid.name === 'Darkrai' ? 491 : 257}`">Counters <span>↗</span></RouterLink></div></article></section>
-    <p v-else-if="searchedPokemon" class="raid-empty">{{ searchedPokemon.name }} não está entre os chefes estáticos monitorados no momento. Consulte a análise para preparar seus counters.</p>
+    <p class="raid-empty">Não há chefes, períodos ou recomendações de raid verificados para exibir.</p>
   </main>
 </template>
 

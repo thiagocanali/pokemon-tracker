@@ -36,13 +36,21 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
-  const { data } = await supabase.auth.getUser();
+  if (!supabase) return true;
 
-  if (to.path === "/account" && !data.user) {
+  let user: { id: string } | null = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    return to.path === "/account" ? { path: "/auth", query: { redirect: "/account" } } : true;
+  }
+
+  if (to.path === "/account" && !user) {
     return { path: "/auth", query: { redirect: "/account" } };
   }
 
-  if (to.path === "/auth" && data.user) {
+  if (to.path === "/auth" && user) {
     const redirect = typeof to.query.redirect === "string" && to.query.redirect.startsWith("/")
       ? to.query.redirect
       : "/account";

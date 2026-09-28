@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { supabase } from "../lib/supabase";
-import { usePokemonStore } from "../store/pokemon";
+import { usePokemonStore, type Pokemon } from "../store/pokemon";
 
 const router = useRouter();
 const pokemonStore = usePokemonStore();
@@ -14,39 +14,56 @@ const deleting = ref(false);
 const error = ref("");
 
 onMounted(async () => {
-  await pokemonStore.init();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) { router.replace("/auth"); return; }
-  email.value = data.user.email ?? "";
-  if (pokemonStore.favorites.length) {
+  if (!supabase) { router.replace("/auth"); loading.value = false; return; }
+
+  try {
+    await pokemonStore.init();
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) { router.replace("/auth"); return; }
+    email.value = data.user.email ?? "";
     const results = await Promise.all(
-      pokemonStore.favorites.slice(0, 12).map(async (id) => {
-        const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
-        if (!response.ok) return null;
-        const pokemon = await response.json();
-        return { id: pokemon.id, name: pokemon.name, sprite: pokemon.sprites.front_default };
-      }),
+      pokemonStore.favorites.slice(0, 12).map((id) => pokemonStore.getPokemon(id).catch(() => null)),
     );
-    favoritePokemon.value = results.filter(Boolean) as { id: number; name: string; sprite: string }[];
+    favoritePokemon.value = results
+      .filter((pokemon): pokemon is Pokemon => pokemon !== null)
+      .map(({ id, name, sprites }) => ({ id, name, sprite: sprites.front_default }));
+  } catch {
+    error.value = "Não foi possível carregar os dados da conta agora.";
+  } finally {
+    loading.value = false;
   }
-  loading.value = false;
 });
 
 async function signOut() {
-  await supabase.auth.signOut();
-  pokemonStore.favorites = [];
-  router.push("/");
+  if (!supabase) return;
+  try {
+    await supabase.auth.signOut();
+    pokemonStore.favorites = [];
+    router.push("/");
+  } catch {
+    error.value = "Não foi possível sair da conta agora.";
+  }
 }
 
 async function deleteAccount() {
+  if (!supabase) return;
   if (!window.confirm("Excluir seu perfil e sua conta permanentemente?")) return;
   deleting.value = true;
   error.value = "";
-  const { error: deleteError } = await supabase.rpc("delete_my_account");
-  if (deleteError) { error.value = "Não foi possível excluir o perfil agora."; deleting.value = false; return; }
-  await supabase.auth.signOut();
-  pokemonStore.favorites = [];
-  router.push("/");
+  try {
+    const { error: deleteError } = await supabase.rpc("delete_my_account");
+    if (deleteError) {
+      error.value = "Não foi possível excluir o perfil agora.";
+      return;
+    }
+    await supabase.auth.signOut();
+    pokemonStore.favorites = [];
+    router.push("/");
+  } catch {
+    error.value = "Não foi possível excluir o perfil agora.";
+  } finally {
+    deleting.value = false;
+  }
 }
 </script>
 

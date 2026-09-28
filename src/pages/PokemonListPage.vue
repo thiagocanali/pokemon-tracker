@@ -10,9 +10,10 @@ const page = ref(1);
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 const visiblePokemon = computed(() => {
+  const normalizedQuery = query.value.trim().toLowerCase();
   const source = query.value.trim() ? store.searchResults : store.list;
   return source.filter((pokemon) => {
-    const matchesQuery = !query.value || pokemon.name.includes(query.value.toLowerCase()) || String(pokemon.id) === query.value;
+    const matchesQuery = !normalizedQuery || pokemon.name.includes(normalizedQuery) || String(pokemon.id) === normalizedQuery;
     const matchesType = !selectedType.value || pokemon.types.some((type) => type.type.name === selectedType.value);
     return matchesQuery && matchesType;
   });
@@ -24,7 +25,8 @@ async function loadPage(nextPage: number) {
 }
 
 async function filterByType() {
-  await store.loadList(page.value, selectedType.value);
+  page.value = 1;
+  await store.loadList(1, selectedType.value);
 }
 
 watch(query, (value) => {
@@ -45,6 +47,7 @@ onBeforeUnmount(() => {
 });
 
 onMounted(async () => {
+  await store.init();
   if (!store.list.length) await store.loadList();
 });
 </script>
@@ -57,7 +60,7 @@ onMounted(async () => {
         <h1>Explore Pokémon</h1>
         <p>Pesquise por nome, número ou tipo e abra uma ficha completa para cada Pokémon.</p>
       </div>
-      <div class="database-stat"><strong>001–1025</strong><span>Pokémon catalogados</span></div>
+      <div class="database-stat"><strong>{{ store.totalCount ? store.totalCount.toLocaleString("pt-BR") : "—" }}</strong><span>registros na fonte</span></div>
     </section>
 
     <section class="database-toolbar" aria-label="Filtros da database">
@@ -81,7 +84,7 @@ onMounted(async () => {
       <p v-if="!visiblePokemon.length" class="empty-state">Nenhum Pokémon encontrado com esses filtros.</p>
     </section>
 
-    <nav class="pagination" aria-label="Paginação da database"><button :disabled="page === 1 || store.loading" @click="loadPage(page - 1)">Anterior</button><span>Página {{ page }}</span><button :disabled="store.loading" @click="loadPage(page + 1)">Próxima</button></nav>
+    <nav class="pagination" aria-label="Paginação da database"><button :disabled="page === 1 || store.loading" @click="loadPage(page - 1)">Anterior</button><span>Página {{ page }}</span><button :disabled="store.loading || page * 20 >= store.totalCount" @click="loadPage(page + 1)">Próxima</button></nav>
   </main>
 </template>
 

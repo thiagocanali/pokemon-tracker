@@ -8,14 +8,20 @@ const secondId = ref("6");
 const first = ref<Pokemon | null>(null);
 const second = ref<Pokemon | null>(null);
 const loading = ref(false);
+const error = ref("");
 
 async function loadComparison() {
   loading.value = true;
+  error.value = "";
   try {
     [first.value, second.value] = await Promise.all([
       store.getPokemon(firstId.value),
       store.getPokemon(secondId.value),
     ]);
+  } catch {
+    first.value = null;
+    second.value = null;
+    error.value = "Não foi possível carregar a comparação. Confira os IDs e tente novamente.";
   } finally {
     loading.value = false;
   }
@@ -41,7 +47,7 @@ onMounted(loadComparison);
 <template>
   <main class="compare-page">
     <section class="page-heading">
-      <div><p class="eyebrow">FERRAMENTA DE ANÁLISE</p><h1>Compare Pokémon</h1><p>Coloque dois Pokémon lado a lado para descobrir qual se encaixa melhor no seu objetivo.</p></div>
+      <div><p class="eyebrow">FERRAMENTA DE ANÁLISE</p><h1>Compare Pokémon</h1><p>Comparação de stats gerais da PokéAPI; estes valores não são os atributos de combate de Pokémon GO.</p></div>
       <button class="primary" :disabled="loading" @click="loadComparison">{{ loading ? "Carregando..." : "Atualizar comparação" }}</button>
     </section>
 
@@ -50,6 +56,7 @@ onMounted(loadComparison);
       <span class="versus">VS</span>
       <label>Segundo Pokémon<input v-model="secondId" inputmode="numeric" aria-label="ID do segundo Pokémon" /></label>
     </section>
+    <p v-if="error" class="comparison-error" role="alert">{{ error }}</p>
 
     <section v-if="first && second" class="comparison-card">
       <div class="pokemon-column"><img :src="first.sprites.front_default" :alt="displayName(first)" /><h2>{{ displayName(first) }}</h2><div class="types"><span v-for="type in first.types" :key="type.type.name">{{ type.type.name }}</span></div></div>

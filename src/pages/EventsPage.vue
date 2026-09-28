@@ -1,20 +1,4 @@
-<script setup lang="ts">
-import { computed, ref } from "vue";
-const selectedFilter = ref("Todos");
-const events = [
-  { status: "Agora", title: "Temporada: Céus em Expansão", date: "Até 30 de setembro", accent: "violet", description: "Bônus de exploração, encontros especiais e desafios semanais para completar sua coleção." },
-  { status: "Próximo", title: "Community Day: Beldum", date: "5 de outubro · 14:00–17:00", accent: "cyan", description: "Mais Beldum na natureza, chance de encontrar versões shiny e ataque exclusivo ao evoluir." },
-  { status: "Próximo", title: "Raid Hour", date: "Toda quarta · 18:00–19:00", accent: "orange", description: "Prepare seus melhores counters para uma hora de reides lendárias em destaque." },
-];
-
-const quickLinks = [
-  { label: "Eventos atuais", filter: "Agora" },
-  { label: "Próximos eventos", filter: "Próximo" },
-  { label: "Todos os eventos", filter: "Todos" },
-];
-const filters = ["Todos", "Agora", "Próximo"];
-const visibleEvents = computed(() => selectedFilter.value === "Todos" ? events : events.filter((event) => event.status === selectedFilter.value));
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <main class="page-shell events-page">
@@ -29,27 +13,21 @@ const visibleEvents = computed(() => selectedFilter.value === "Todos" ? events :
 
     <section class="event-hero surface-card">
       <div class="hero-copy">
-        <span class="live-pill"><i></i> AO VIVO AGORA</span>
-        <h2>Saiba onde concentrar sua energia.</h2>
-        <p>Eventos, bônus e mudanças importantes reunidos em uma visão rápida para você não perder nenhuma oportunidade.</p>
+        <span class="live-pill">FONTE NÃO CONECTADA</span>
+        <h2>Calendário Pokémon GO</h2>
+        <p>Esta área só exibirá eventos quando houver uma fonte verificável conectada.</p>
       </div>
-      <div class="hero-metric"><strong>03</strong><span>eventos monitorados</span></div>
+      <div class="hero-metric"><strong>—</strong><span>eventos verificados</span></div>
     </section>
 
     <div class="events-layout">
       <section class="event-list">
-        <div class="section-title"><div><p class="eyebrow">AGENDA</p><h2>O que está acontecendo</h2></div><div class="event-filters" role="tablist" aria-label="Filtrar eventos"><button v-for="filter in filters" :key="filter" type="button" :class="{ active: selectedFilter === filter }" @click="selectedFilter = filter">{{ filter }}</button></div></div>
-        <article v-for="event in visibleEvents" :key="event.title" class="event-card surface-card" :class="`accent-${event.accent}`">
-          <div class="event-marker"></div>
-          <div class="event-content"><div class="event-meta"><span class="status">{{ event.status }}</span><span>{{ event.date }}</span></div><h3>{{ event.title }}</h3><p>{{ event.description }}</p></div>
-          <button class="arrow-button" :aria-label="`Ver detalhes de ${event.title}`">↗</button>
-        </article>
-        <p v-if="!visibleEvents.length" class="empty-events">Nenhum evento encontrado para este filtro.</p>
+        <div class="section-title"><div><p class="eyebrow">AGENDA</p><h2>Eventos</h2></div></div>
+        <p class="empty-events">Ainda não há dados de eventos conectados. Nenhuma data ou programação está sendo presumida.</p>
       </section>
 
       <aside class="side-column">
-        <div class="surface-card quick-card"><p class="eyebrow">EXPLORAR</p><h2>Atalhos</h2><button v-for="link in quickLinks" :key="link.label" type="button" @click="selectedFilter = link.filter">{{ link.label }}<span>→</span></button></div>
-        <div class="surface-card tip-card"><p class="eyebrow">DICA RÁPIDA</p><h3>Planeje seus passes.</h3><p>Confira o calendário antes de usar seus passes remotos e reserve recursos para os eventos que combinam com sua coleção.</p></div>
+        <div class="surface-card quick-card"><p class="eyebrow">STATUS</p><h2>Calendário indisponível</h2><p>Providers de eventos e seasons ainda precisam ser conectados.</p></div>
       </aside>
     </div>
   </main>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { usePokemonStore, type Pokemon } from "../store/pokemon";
 
@@ -7,47 +7,48 @@ const store = usePokemonStore();
 const query = ref("");
 const remoteTarget = ref<Pokemon | null>(null);
 const searchLoading = ref(false);
-const selectedType = ref("Todos");
-const types = ["Todos", "Dragon", "Flying", "Water", "Fire", "Dark"];
-const targets = [
-  { name: "Rayquaza", id: 384, type: "Dragon / Flying", weakness: "Ice · Rock · Dragon", accent: "#6d9cff", counters: [{ name: "Mamoswine", id: 473, role: "Shadow · Ice", score: "98%" }, { name: "Galarian Darmanitan", id: 555, role: "Ice", score: "94%" }, { name: "Mega Glalie", id: 362, role: "Mega · Ice", score: "91%" }] },
-  { name: "Groudon", id: 383, type: "Ground", weakness: "Water · Grass · Ice", accent: "#e08c66", counters: [{ name: "Primal Kyogre", id: 382, role: "Primal · Water", score: "99%" }, { name: "Mega Sceptile", id: 254, role: "Mega · Grass", score: "93%" }, { name: "Kyogre", id: 382, role: "Water", score: "90%" }] },
-  { name: "Yveltal", id: 717, type: "Dark / Flying", weakness: "Fairy · Ice · Rock", accent: "#bb79e7", counters: [{ name: "Xerneas", id: 716, role: "Fairy", score: "97%" }, { name: "Mega Diancie", id: 719, role: "Mega · Rock", score: "92%" }, { name: "Gardevoir", id: 282, role: "Fairy", score: "88%" }] },
-];
-const typeWeaknesses: Record<string, string[]> = { normal: ["Fighting"], fire: ["Water", "Ground", "Rock"], water: ["Electric", "Grass"], electric: ["Ground"], grass: ["Fire", "Ice", "Poison", "Flying", "Bug"], ice: ["Fire", "Fighting", "Rock", "Steel"], fighting: ["Flying", "Psychic", "Fairy"], poison: ["Ground", "Psychic"], ground: ["Water", "Grass", "Ice"], flying: ["Electric", "Ice", "Rock"], psychic: ["Bug", "Ghost", "Dark"], bug: ["Fire", "Flying", "Rock"], rock: ["Water", "Grass", "Fighting", "Ground", "Steel"], ghost: ["Ghost", "Dark"], dragon: ["Ice", "Dragon", "Fairy"], dark: ["Fighting", "Bug", "Fairy"], steel: ["Fire", "Fighting", "Ground"], fairy: ["Poison", "Steel"] };
 const dynamicTarget = computed(() => {
   if (!remoteTarget.value) return null;
   const typeNames = remoteTarget.value.types.map(({ type }) => type.name);
-  const weaknesses = [...new Set(typeNames.flatMap((type) => typeWeaknesses[type] ?? []))];
-  return { name: remoteTarget.value.name, id: remoteTarget.value.id, type: typeNames.map((type) => type.replace(/^./, (letter) => letter.toUpperCase())).join(" / "), weakness: weaknesses.join(" · "), accent: "#806dff", counters: [] };
+  return { name: remoteTarget.value.name, id: remoteTarget.value.id, type: typeNames.map((type) => type.replace(/^./, (letter) => letter.toUpperCase())).join(" / ") };
 });
-const visibleTargets = computed(() => dynamicTarget.value ? [dynamicTarget.value] : targets.filter(target => (!query.value || target.name.toLowerCase().includes(query.value.toLowerCase())) && (selectedType.value === "Todos" || target.type.includes(selectedType.value))));
+const visibleTargets = computed(() => dynamicTarget.value ? [dynamicTarget.value] : []);
 const sprite = (id: number) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
+let searchRequestId = 0;
 watch(query, (value) => {
   window.clearTimeout(searchTimer);
+  const requestId = ++searchRequestId;
   remoteTarget.value = null;
   const normalized = value.trim();
-  if (!normalized) return;
+  if (!normalized) {
+    searchLoading.value = false;
+    return;
+  }
   searchTimer = window.setTimeout(async () => {
     searchLoading.value = true;
     try {
-      remoteTarget.value = await store.getPokemon(normalized);
+      const pokemon = await store.getPokemon(normalized);
+      if (requestId === searchRequestId) remoteTarget.value = pokemon;
     } catch {
-      remoteTarget.value = null;
+      if (requestId === searchRequestId) remoteTarget.value = null;
     } finally {
-      searchLoading.value = false;
+      if (requestId === searchRequestId) searchLoading.value = false;
     }
   }, 300);
+});
+
+onBeforeUnmount(() => {
+  window.clearTimeout(searchTimer);
+  searchRequestId += 1;
 });
 </script>
 
 <template>
   <main class="counters-page">
-    <section class="page-heading"><div><p class="eyebrow">RAID INTELLIGENCE</p><h1>Counter Finder</h1><p class="lede">Descubra quais Pokémon levam vantagem contra qualquer chefe e monte um time pronto para a batalha.</p></div><div class="heading-status"><span class="live-dot"></span><span>Metas atualizadas</span><small>Base de dados PokéLab</small></div></section>
-    <section class="finder-panel"><div class="finder-copy"><span class="pill">CONSULTOR DE BATALHA</span><h2>Quem você precisa derrotar?</h2><p>Pesquise um chefe para ver os melhores counters, Shadow, Mega e alternativas acessíveis.</p></div><label class="search-box"><span>⌕</span><input v-model="query" type="search" placeholder="Buscar Pokémon ou chefe" aria-label="Buscar Pokémon ou chefe" /></label><span v-if="searchLoading" class="search-feedback" role="status">Consultando a Pokédex...</span></section>
-    <section class="toolbar"><div><p class="section-label">RECOMENDAÇÕES</p><h2>Escolha um alvo</h2></div><div class="filters" role="tablist"><button v-for="type in types" :key="type" :class="{ active: selectedType === type }" @click="selectedType = type">{{ type }}</button></div></section>
-    <section class="target-grid"><article v-for="target in visibleTargets" :key="target.name" class="target-card"><div class="target-header"><div><span class="raid-status">RAID BOSS</span><h3>{{ target.name }}</h3><p>{{ target.type }}</p></div><img :src="sprite(target.id)" :alt="target.name" /></div><div class="weakness"><span>Fraco contra</span><strong>{{ target.weakness }}</strong></div><div class="counter-list"><div v-for="counter in target.counters" :key="counter.name" class="counter-row"><img :src="sprite(counter.id)" :alt="counter.name" /><div><strong>{{ counter.name }}</strong><span>{{ counter.role }}</span></div><b>{{ counter.score }}</b></div></div><RouterLink class="card-link" :to="`/pokemon/${target.id}`">Ver análise completa <span>→</span></RouterLink></article><div v-if="!visibleTargets.length" class="empty-state">Nenhum alvo encontrado. Tente outro nome ou tipo.</div></section>
+    <section class="page-heading"><div><p class="eyebrow">RAID INTELLIGENCE</p><h1>Counter Finder</h1><p class="lede">Consulte os tipos de um Pokémon. Rankings, movesets e counters de Pokémon GO ainda não estão conectados.</p></div><div class="heading-status"><span class="live-dot"></span><span>PokéAPI · dados gerais</span><small>Sem ranking GO verificado</small></div></section>
+    <section class="finder-panel"><div class="finder-copy"><span class="pill">CONSULTA DE TIPOS</span><h2>Pesquisar Pokémon</h2><p>A ficha abaixo usa dados gerais; ela não representa a rotação atual de raids.</p></div><label class="search-box"><span>⌕</span><input v-model="query" type="search" placeholder="Nome ou número da Pokédex" aria-label="Buscar Pokémon" /></label><span v-if="searchLoading" class="search-feedback" role="status">Consultando a Pokédex...</span></section>
+    <section class="target-grid"><article v-for="target in visibleTargets" :key="target.name" class="target-card"><div class="target-header"><div><span class="raid-status">POKÉDEX GERAL</span><h3>{{ target.name }}</h3><p>{{ target.type }}</p></div><img :src="sprite(target.id)" :alt="target.name" /></div><p class="empty-state">Fraquezas e recomendações de counters de Pokémon GO não estão disponíveis sem um provider de batalha.</p><RouterLink class="card-link" :to="`/pokemon/${target.id}`">Abrir ficha <span>→</span></RouterLink></article><div v-if="!query && !visibleTargets.length" class="empty-state">Pesquise um Pokémon para consultar seus tipos.</div><div v-else-if="query && searchLoading" class="empty-state">Consultando a Pokédex...</div><div v-else-if="query && !visibleTargets.length" class="empty-state">Pokémon não encontrado. Tente um nome em inglês ou o número da Pokédex.</div></section>
   </main>
 </template>
 

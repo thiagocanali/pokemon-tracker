@@ -11,6 +11,7 @@ const captureProgress = ref(0);
 const capturing = ref(false);
 const captureMessage = ref("");
 const detailError = ref("");
+let loadRequestId = 0;
 
 const totalStats = computed(() => pokemon.value?.stats?.reduce((total, stat) => total + stat.base_stat, 0) ?? 0);
 const isFavorite = computed(() => pokemon.value ? store.favorites.includes(pokemon.value.id) : false);
@@ -33,12 +34,14 @@ const tryCapture = () => {
 };
 
 const loadPokemon = async (id: string) => {
+  const requestId = ++loadRequestId;
   pokemon.value = null;
   detailError.value = "";
   try {
-    pokemon.value = await store.getPokemon(id);
+    const result = await store.getPokemon(id);
+    if (requestId === loadRequestId) pokemon.value = result;
   } catch {
-    detailError.value = "Não encontramos esse Pokémon na Pokédex. Confira o nome ou número e tente novamente.";
+    if (requestId === loadRequestId) detailError.value = "Não encontramos esse Pokémon na Pokédex. Confira o nome ou número e tente novamente.";
   }
 };
 
@@ -56,7 +59,7 @@ watch(() => route.params.id, (id) => loadPokemon(id as string));
         <div class="type-list">
           <span v-for="type in pokemon.types" :key="type.type.name" :class="['type-badge', type.type.name]">{{ type.type.name }}</span>
         </div>
-        <p class="summary">Uma leitura rápida para entender o potencial deste Pokémon antes de investir recursos ou levá-lo para uma batalha.</p>
+        <p class="summary">Fonte: PokéAPI. Estes são dados gerais de Pokémon; stats, habilidades e moves específicos de Pokémon GO não estão conectados.</p>
         <div class="hero-actions">
           <button class="button button-primary" type="button" @click="tryCapture" :disabled="capturing">{{ capturing ? "Capturando..." : isFavorite ? "Na sua coleção" : "Adicionar à coleção" }}</button>
           <button class="button button-ghost" type="button" @click="store.toggleFavorite(pokemon!.id)">{{ isFavorite ? "Remover favorito" : "Salvar favorito" }}</button>
@@ -82,9 +85,9 @@ watch(() => route.params.id, (id) => loadPokemon(id as string));
       <div class="stats-list"><div v-for="stat in pokemon.stats" :key="stat.stat.name" class="stat-row"><div class="stat-name"><span>{{ stat.stat.name.replace('-', ' ') }}</span><strong>{{ stat.base_stat }}</strong></div><div class="stat-track"><span :style="{ width: `${Math.min(stat.base_stat / 2.55, 100)}%` }"></span></div></div></div>
     </section>
 
-    <section class="data-section abilities-section"><div class="section-heading"><div><span class="eyebrow">Características</span><h2>Habilidades</h2></div></div><div class="ability-list"><span v-for="ability in pokemon.abilities" :key="ability.ability.name">{{ ability.ability.name.replace('-', ' ') }}</span></div></section>
+    <section class="data-section abilities-section"><div class="section-heading"><div><span class="eyebrow">Jogos principais</span><h2>Habilidades</h2></div></div><div class="ability-list"><span v-for="ability in pokemon.abilities" :key="ability.ability.name">{{ ability.ability.name.replace('-', ' ') }}</span></div></section>
 
-    <section class="data-section moves-section"><div class="section-heading"><div><span class="eyebrow">Recomendação de combate</span><h2>Moves disponíveis</h2></div><RouterLink class="section-link" to="/moves">Ver database de moves →</RouterLink></div><div class="move-list"><span v-for="move in pokemon.moves?.slice(0, 12)" :key="move.move.name">{{ move.move.name.replace('-', ' ') }}</span></div><p v-if="!pokemon.moves?.length" class="empty-note">Nenhum move foi encontrado para este Pokémon.</p></section>
+    <section class="data-section moves-section"><div class="section-heading"><div><span class="eyebrow">Jogos principais · PokéAPI</span><h2>Moves disponíveis</h2></div><RouterLink class="section-link" to="/moves">Ver dados de Pokémon GO →</RouterLink></div><div class="move-list"><span v-for="move in pokemon.moves?.slice(0, 12)" :key="move.move.name">{{ move.move.name.replace('-', ' ') }}</span></div><p v-if="!pokemon.moves?.length" class="empty-note">Nenhum move foi encontrado para este Pokémon.</p></section>
   </main>
   <main v-else class="loading-state page-shell">
     <span class="eyebrow">Consultando database</span>

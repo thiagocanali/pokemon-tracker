@@ -15,6 +15,10 @@ const error = ref("");
 const title = computed(() => mode.value === "login" ? "Entrar no PokéLab" : mode.value === "reset" ? "Definir nova senha" : "Criar seu perfil");
 
 async function recoverAccess() {
+  if (!supabase) {
+    error.value = "Autenticação indisponível. Configure as variáveis do Supabase para habilitar esta área.";
+    return;
+  }
   if (loading.value || !email.value) {
     error.value = "Informe seu e-mail para recuperar o acesso.";
     return;
@@ -22,19 +26,25 @@ async function recoverAccess() {
   recovering.value = true;
   message.value = "";
   error.value = "";
-  const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.value, {
-    redirectTo: `${window.location.origin}/auth?mode=reset`,
-  });
-  recovering.value = false;
-  if (resetError) {
+  try {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.value, {
+      redirectTo: `${window.location.origin}/auth?mode=reset`,
+    });
+    if (resetError) throw resetError;
+    message.value = "Se o e-mail estiver cadastrado, você receberá as instruções em instantes.";
+  } catch {
     error.value = "Não foi possível enviar o e-mail de recuperação. Tente novamente.";
-    return;
+  } finally {
+    recovering.value = false;
   }
-  message.value = "Se o e-mail estiver cadastrado, você receberá as instruções em instantes.";
 }
 
 async function submit() {
   if (loading.value) return;
+  if (!supabase) {
+    error.value = "Autenticação indisponível. Configure as variáveis do Supabase para habilitar esta área.";
+    return;
+  }
   loading.value = true;
   message.value = "";
   error.value = "";
@@ -79,7 +89,7 @@ async function submit() {
       <h1>{{ title }}</h1>
       <p class="auth-intro">{{ mode === "reset" ? "Escolha uma senha nova para proteger seu perfil." : "Salve favoritos, acompanhe sua jornada e mantenha seus dados sincronizados." }}</p>
       <form @submit.prevent="submit">
-        <label v-if="mode !== 'reset'">E-mail<input v-model="email" type="email" autocomplete="email" :required="mode !== 'reset'" placeholder="treinador@email.com" /></label>
+        <label v-if="mode !== 'reset'">E-mail<input v-model="email" type="email" autocomplete="email" required placeholder="treinador@email.com" /></label>
         <label>Senha<input v-model="password" type="password" :autocomplete="mode === 'login' ? 'current-password' : 'new-password'" minlength="6" required placeholder="Mínimo de 6 caracteres" /></label>
         <p v-if="error" class="form-error" role="alert">{{ error }}</p>
         <p v-if="message" class="form-message" role="status">{{ message }}</p>
