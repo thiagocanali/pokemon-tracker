@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { RouterLink } from "vue-router";
 import { supabase } from "../lib/supabase";
 import { usePokemonStore, type Pokemon } from "../store/pokemon";
@@ -107,7 +107,21 @@ async function deleteTeam(id: string) {
   }
 }
 
-onMounted(loadSavedTeams);
+let authSubscription: { unsubscribe: () => void } | null = null;
+
+onMounted(() => {
+  loadSavedTeams();
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    userId.value = session?.user?.id ?? null;
+    if (userId.value) loadSavedTeams();
+    else savedTeams.value = [];
+  });
+  authSubscription = data.subscription;
+});
+
+onUnmounted(() => {
+  authSubscription?.unsubscribe();
+});
 </script>
 
 <template>

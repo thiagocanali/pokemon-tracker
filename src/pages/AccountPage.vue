@@ -35,7 +35,6 @@ onMounted(async () => {
 async function signOut() {
   await supabase.auth.signOut();
   pokemonStore.favorites = [];
-  localStorage.removeItem("favorites");
   router.push("/");
 }
 
@@ -47,7 +46,6 @@ async function deleteAccount() {
   if (deleteError) { error.value = "Não foi possível excluir o perfil agora."; deleting.value = false; return; }
   await supabase.auth.signOut();
   pokemonStore.favorites = [];
-  localStorage.removeItem("favorites");
   router.push("/");
 }
 </script>
