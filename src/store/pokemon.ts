@@ -15,6 +15,20 @@ export interface Pokemon {
   abilities?: { ability: { name: string } }[];
 }
 
+const API_BASE = "https://pokeapi.co/api/v2";
+const responseCache = new Map<string, unknown>();
+
+async function fetchJson<T>(path: string): Promise<T> {
+  const cached = responseCache.get(path);
+  if (cached) return cached as T;
+
+  const response = await fetch(`${API_BASE}${path}`);
+  if (!response.ok) throw new Error("Não foi possível consultar a Pokédex");
+  const data = (await response.json()) as T;
+  responseCache.set(path, data);
+  return data;
+}
+
 export const usePokemonStore = defineStore("pokemon", {
   state: () => ({
     list: [] as Pokemon[],
@@ -54,10 +68,9 @@ export const usePokemonStore = defineStore("pokemon", {
       this.error = "";
       try {
         const offset = (page - 1) * 20;
-        const res = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=20&offset=${offset}`);
-        const data = await res.json();
+        const data = await fetchJson<{ results: { name: string; url: string }[] }>(`/pokemon?limit=20&offset=${offset}`);
         const details: Pokemon[] = await Promise.all(
-          data.results.map((p: any) => fetch(p.url).then(r => r.json()))
+          data.results.map((pokemon) => fetchJson<Pokemon>(`/pokemon/${pokemon.name}`))
         );
         this.list = type
           ? details.filter(p => p.types.some(t => t.type.name === type))
@@ -86,22 +99,16 @@ export const usePokemonStore = defineStore("pokemon", {
       try {
         // Consultas exatas usam o endpoint direto e continuam funcionando mesmo
         // quando a lista completa da Pokédex ainda não foi carregada.
-        const directRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(normalized)}`);
-        let matches: { url: string }[] = [];
-        if (directRes.ok) {
-          matches = [{ url: `https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(normalized)}` }];
-        } else {
-          const catalogRes = await fetch("https://pokeapi.co/api/v2/pokemon?limit=2000&offset=0");
-          if (!catalogRes.ok) throw new Error("Não foi possível consultar a Pokédex");
-          const catalog = await catalogRes.json();
-          matches = catalog.results
-            .filter((pokemon: { name: string; url: string }) => pokemon.name.includes(normalized) || pokemon.url.split("/").filter(Boolean).pop() === normalized)
+        let results: Pokemon[] = [];
+        try {
+          results = [await fetchJson<Pokemon>(`/pokemon/${encodeURIComponent(normalized)}`)];
+        } catch {
+          const catalog = await fetchJson<{ results: { name: string; url: string }[] }>("/pokemon?limit=2000&offset=0");
+          const matches = catalog.results
+            .filter((pokemon) => pokemon.name.includes(normalized) || pokemon.url.split("/").filter(Boolean).pop() === normalized)
             .slice(0, 20);
+          results = await Promise.all(matches.map((pokemon) => fetchJson<Pokemon>(`/pokemon/${pokemon.name}`)));
         }
-        const results = await Promise.all(matches.map((pokemon) => fetch(pokemon.url).then((res) => {
-          if (!res.ok) throw new Error("Não foi possível carregar os dados do Pokémon");
-          return res.json();
-        })));
         if (requestId !== this.searchRequestId) return;
         this.searchResults = results;
         const allTypes = new Set<string>();
@@ -119,9 +126,7 @@ export const usePokemonStore = defineStore("pokemon", {
     async getPokemon(id: string) {
       this.loading = true;
       try {
-        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
-        if (!res.ok) throw new Error("Pokémon não encontrado");
-        return await res.json();
+        return await fetchJson<Pokemon>(`/pokemon/${encodeURIComponent(id)}`);
       } finally {
         this.loading = false;
       }

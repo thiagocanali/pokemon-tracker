@@ -9,6 +9,7 @@ import MovesPage from "../pages/MovesPage.vue";
 import EventsPage from "../pages/EventsPage.vue";
 import RaidsPage from "../pages/RaidsPage.vue";
 import CountersPage from "../pages/CountersPage.vue";
+import TeamBuilderPage from "../pages/TeamBuilderPage.vue";
 import AuthPage from "../pages/AuthPage.vue";
 import AccountPage from "../pages/AccountPage.vue";
 import { supabase } from "../lib/supabase";
@@ -23,6 +24,7 @@ const routes = [
   { path: "/events", component: EventsPage },
   { path: "/raids", component: RaidsPage },
   { path: "/counters", component: CountersPage },
+  { path: "/team-builder", component: TeamBuilderPage },
   { path: "/pokemon/:id", component: PokemonDetail },
   { path: "/auth", component: AuthPage },
   { path: "/account", component: AccountPage },
