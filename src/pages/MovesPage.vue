@@ -10,6 +10,7 @@ const pokemonMoveNames = ref<string[]>([]);
 const pokemonBestMoves = ref<Move[]>([]);
 const pokemonSearchLoading = ref(false);
 const pokemonSearchMessage = ref("");
+let activeRequest: AbortController | undefined;
 const moves: Move[] = [
   { name: "Shadow Claw", type: "Ghost", category: "Fast", power: 6, energy: 4, dps: "15.4", eps: "8.6", users: 48 },
   { name: "Psycho Cut", type: "Psychic", category: "Fast", power: 3, energy: 9, dps: "10.0", eps: "15.0", users: 24 },
@@ -31,20 +32,28 @@ const filteredMoves = computed(() => {
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 watch(query, (value) => {
   window.clearTimeout(searchTimer);
+  activeRequest?.abort();
   pokemonMoveNames.value = [];
+  pokemonBestMoves.value = [];
   pokemonSearchMessage.value = "";
   const normalized = value.trim().toLowerCase();
   if (!normalized) return;
 
   searchTimer = window.setTimeout(async () => {
+    const request = new AbortController();
+    activeRequest = request;
     pokemonSearchLoading.value = true;
     try {
-      const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(normalized)}`);
-      if (response.ok) {
+      const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(normalized)}`, { signal: request.signal });
+      if (!response.ok) {
+        pokemonSearchMessage.value = `Pokémon “${normalized}” não encontrado. Tente o nome em inglês ou o número da Pokédex.`;
+        return;
+      }
+      {
         const pokemon = await response.json();
         const moveEntries = pokemon.moves as Array<{ move: { name: string; url: string } }>;
         const details = await Promise.all(moveEntries.map(async ({ move }) => {
-          const moveResponse = await fetch(move.url);
+          const moveResponse = await fetch(move.url, { signal: request.signal });
           if (!moveResponse.ok) return null;
           const detail = await moveResponse.json();
           const localizedName = detail.names?.find((entry: { language: { name: string } }) => entry.language.name === "en")?.name ?? move.name.replaceAll("-", " ");
@@ -66,10 +75,14 @@ watch(query, (value) => {
         pokemonBestMoves.value = [...bestFast, ...bestCharged];
         pokemonSearchMessage.value = `Melhores moves de ${pokemon.name} por força`;
       }
-    } catch {
-      // A busca local continua disponível mesmo quando a API não responde.
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      pokemonSearchMessage.value = "Não foi possível consultar os moves agora. A busca local continua disponível.";
     } finally {
-      pokemonSearchLoading.value = false;
+      if (activeRequest === request) {
+        activeRequest = undefined;
+        pokemonSearchLoading.value = false;
+      }
     }
   }, 300);
 });
