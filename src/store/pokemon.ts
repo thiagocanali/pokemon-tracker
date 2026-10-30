@@ -6,8 +6,30 @@ import type { Pokemon } from "../data/providers/contracts";
 
 export type { Pokemon } from "../data/providers/contracts";
 
+const FAVORITES_STORAGE_KEY = "pokemon-tracker:favorites";
+
 let storeInitialization: Promise<void> | null = null;
 let storeInitialized = false;
+
+function readLocalFavorites(): number[] {
+  try {
+    const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed)
+      ? [...new Set(parsed.map(Number).filter((id) => Number.isInteger(id) && id > 0))]
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistLocalFavorites(favorites: number[]) {
+  try {
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
+  } catch {
+    // Favorites remain available in memory for the current session.
+  }
+}
 
 export const usePokemonStore = defineStore("pokemon", {
   state: () => ({
@@ -31,7 +53,7 @@ export const usePokemonStore = defineStore("pokemon", {
         this.darkMode = dark;
         document.body.classList.toggle("dark", dark);
 
-        this.favorites = [];
+        this.favorites = readLocalFavorites();
         if (!supabase) return;
         await this.syncFavoritesFromAccount();
       })().finally(() => {
@@ -45,9 +67,19 @@ export const usePokemonStore = defineStore("pokemon", {
       if (!supabase) return;
       try {
         const { data } = await supabase.auth.getUser();
-        const accountFavorites = data.user?.user_metadata?.favorites;
-        if (!Array.isArray(accountFavorites)) return;
-        this.favorites = accountFavorites.map(Number).filter(Number.isInteger);
+        if (!data.user) return;
+
+        const accountFavorites = data.user.user_metadata?.favorites;
+        const remote = Array.isArray(accountFavorites)
+          ? accountFavorites.map(Number).filter((id: number) => Number.isInteger(id) && id > 0)
+          : [];
+        this.favorites = [...new Set([...remote, ...this.favorites])];
+        persistLocalFavorites(this.favorites);
+
+        if (this.favorites.length !== remote.length) {
+          const { error } = await supabase.auth.updateUser({ data: { favorites: this.favorites } });
+          if (error) this.error = "Não foi possível sincronizar seus favoritos.";
+        }
       } catch {
         return;
       }
@@ -103,11 +135,14 @@ export const usePokemonStore = defineStore("pokemon", {
       }
     },
     async toggleFavorite(id: number) {
+      if (!Number.isInteger(id) || id <= 0) return;
+
       if (this.favorites.includes(id)) {
         this.favorites = this.favorites.filter(f => f !== id);
       } else {
         this.favorites.push(id);
       }
+      persistLocalFavorites(this.favorites);
 
       if (!supabase) return;
 
