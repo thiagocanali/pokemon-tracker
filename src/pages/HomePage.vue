@@ -71,7 +71,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="section-block">
-      <div class="section-heading"><div><span class="eyebrow">Estado das fontes</span><h2>Dados disponíveis</h2></div><span class="status-pill">{{ pokeApiSource ? `PokéAPI · ${pokeApiSource.lastStatus === "unknown" ? "sem sincronização" : pokeApiSource.lastStatus}` : "Fontes não verificadas" }}</span></div>
+      <div class="section-heading"><div><span class="eyebrow">Estado das fontes</span><h2>Dados disponíveis</h2></div><span class="status-pill">{{ pokeApiSource ? `PokéAPI · ${pokeApiSource.recordCount} registros` : "Fontes não verificadas" }}</span></div>
       <div class="insight-grid">
         <article class="insight-card highlight"><div class="card-icon">◈</div><span class="card-label">Eventos e temporadas</span><h3>Fonte não conectada</h3><p>Não há calendário GO verificado disponível nesta versão.</p><RouterLink to="/events">Abrir eventos <span>→</span></RouterLink></article>
         <article class="insight-card"><div class="card-icon violet">✦</div><span class="card-label">Batalhas e rankings</span><h3>Dados GO indisponíveis</h3><p>Rankings PvP, raids e recomendações dependem de providers próprios.</p><RouterLink to="/counters">Ver análise de tipos <span>→</span></RouterLink></article>

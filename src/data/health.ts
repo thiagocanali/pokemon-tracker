@@ -9,6 +9,7 @@ export type DataSourceHealth = {
   lastStatus: "unknown" | "updated" | "stale" | "offline" | "unavailable";
   lastCheckedAt: string | null;
   lastSuccessAt: string | null;
+  recordCount: number;
 };
 
 export async function getDataSourceHealth(): Promise<DataSourceHealth[]> {
@@ -19,6 +20,14 @@ export async function getDataSourceHealth(): Promise<DataSourceHealth[]> {
     .order("name");
 
   if (error) throw error;
+  const counts = await Promise.all((data ?? []).map(async (source) => {
+    const { count } = await supabase
+      .from("pokemon_records")
+      .select("id", { count: "exact", head: true })
+      .eq("source_id", source.id);
+    return [source.id, count ?? 0] as const;
+  }));
+  const recordCounts = new Map(counts);
   return (data ?? []).map((source) => ({
     id: source.id,
     name: source.name,
@@ -28,5 +37,6 @@ export async function getDataSourceHealth(): Promise<DataSourceHealth[]> {
     lastStatus: source.last_status,
     lastCheckedAt: source.last_checked_at,
     lastSuccessAt: source.last_success_at,
+    recordCount: recordCounts.get(source.id) ?? 0,
   }));
 }
