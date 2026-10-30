@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { supabase } from "../lib/supabase";
 import { pokeApiPokemonProvider } from "../data/providers/pokeapi";
+import { getCanonicalPokemon } from "../data/service";
 import type { Pokemon } from "../data/providers/contracts";
 
 export type { Pokemon } from "../data/providers/contracts";
@@ -102,7 +103,8 @@ export const usePokemonStore = defineStore("pokemon", {
     async getPokemon(id: string | number) {
       this.loading = true;
       try {
-        return await pokeApiPokemonProvider.get(id);
+        const result = await getCanonicalPokemon(id);
+        return result.data;
       } finally {
         this.loading = false;
       }
