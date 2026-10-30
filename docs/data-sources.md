@@ -17,9 +17,9 @@ O cadastro de uma fonte **não significa** que ela já esteja integrada ou que s
 | Fonte | Domínio pretendido | Uso e limitações |
 |---|---|---|
 | PokéAPI | Catálogo geral da franquia | Identidade, espécies e dados não específicos de Pokémon GO. Não usar como fonte de stats/movesets GO. |
-| PokeMiners | Game Master e assets | Candidata para atributos, formas e movimentos presentes nos arquivos do jogo. Exigir versão/hash e data do arquivo. |
+| PokeMiners Game Master | Game Master e assets | Candidata para atributos, formas e movimentos presentes nos arquivos do jogo. Exigir versão/hash e data do arquivo. O próprio projeto alerta que campos ofuscados podem estar incorretamente identificados e que o conteúdo é para fins educacionais. |
 | Pokébattler | Simulações PvE e raids | Candidato para simulações/counters. Guardar parâmetros (boss, nível, clima, estratégia, moveset etc.). API comunitária sem SLA publicado. |
-| PvPoke | PvP / GO Battle League | Candidato para rankings por liga/formato. Guardar regras, versão e data. Nunca reutilizar ranking PvP como PvE. |
+| PvPoke | PvP / GO Battle League | Código aberto sob licença MIT; rankings são gerados por simulações 1 vs 1. Guardar regras, versão e data. Simulação não representa todas as decisões dinâmicas de uma batalha real. Nunca reutilizar ranking PvP como PvE. |
 | Leek Duck | Eventos, calendário e rotações | Candidato para eventos. Guardar URL do evento, horário/fuso e momento da verificação. Confirmar anúncios com canais oficiais quando possível. |
 | Pokémon GO Hub | Database e ferramentas comunitárias | Fonte secundária/agregadora. Registrar metodologia e créditos do conjunto específico utilizado. |
 
