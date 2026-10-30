@@ -13,8 +13,7 @@ Base pública documentada: `https://fight.pokebattler.com`.
 - `GET /raids`: rotação atual e raids anunciadas.
 - `GET /pokemon`: Pokédex de combate, tipos, stats base e movesets disponíveis.
 - `GET /moves`: dados de movimentos (poder, energia e duração).
-- `GET /raids/defenders/{boss}/levels/{tier}/attackers/levels/{level}/strategies/{attack}/{defense}`: **rota legada/incompleta; não usar sem confirmar a versão**. A documentação v2 atual exemplifica a rota com `/raids/defenders/{boss}/levels/{tier}/attackers/levels/{level}/strategies/{attack}/{defense}`? A página atual também apresenta o endpoint de counters abaixo como rota canônica.
-- `GET /raids/defenders/{boss}/levels/{tier}/attackers/levels/{level}/strategies/{attack}/{defense}` com parâmetros `sort`, `weatherCondition`, `dodgeStrategy` e `aggregation`: consulta de counters por boss; conferir o exemplo da documentação atual antes de fixar a URL no código.
+- `GET /raids/defenders/{boss}/levels/{tier}/attackers/levels/{level}/strategies/{attack}/{defense}`: counters simulados para um boss específico. A documentação v2 usa esse formato e mostra, por exemplo, `RILLABOOM_GIGANTAMAX`, `RAID_LEVEL_6` e nível de atacante `40`.
 - `GET /rankings/attackers/levels/{level}/defenders/levels/{level}/strategies/{attack}/{defense}`: ranking geral de atacantes; evitar como primeira integração porque rankings globais simulam o meta completo e podem expirar.
 - `GET /rocket`: escalações atuais da Equipe GO Rocket. Não reutilizar os counters de raid.
 - `GET /pvp/rankings/{side}/leagues/{league}/strategies/PVP/PVP`: ranking PvP por liga; domínio separado de PvE.
