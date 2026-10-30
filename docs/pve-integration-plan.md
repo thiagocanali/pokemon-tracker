@@ -6,21 +6,23 @@ Adicionar recomendações de atacantes para raids de Pokémon GO com simulaçõe
 
 ## Fonte e endpoints candidatos
 
-Documentação comunitária consultada em 2026-10-30: https://v2.pokebattler.com/developers
+Documentação comunitária consultada em 2026-10-30: https://v2.pokebattler.com/developers e https://www.pokebattler.com/developers/
 
 Base pública documentada: `https://fight.pokebattler.com`.
 
 - `GET /raids`: rotação atual e raids anunciadas.
 - `GET /pokemon`: Pokédex de combate, tipos, stats base e movesets disponíveis.
 - `GET /moves`: dados de movimentos (poder, energia e duração).
-- `GET /raids/defenders/{boss}/levels/{tier}/attackers/levels/{level}/strategies/{attack}/{defense}`: counters simulados para um boss.
-- `GET /rankings/attackers/levels/{level}/defenders/levels/{level}/strategies/{attack}/{defense}`: ranking geral de atacantes; evitar como primeira integração porque a própria documentação alerta que rankings globais são caros e podem expirar.
+- `GET /raids/defenders/{boss}/levels/{tier}/attackers/levels/{level}/strategies/{attack}/{defense}`: counters simulados para um boss específico. A documentação v2 usa esse formato e mostra, por exemplo, `RILLABOOM_GIGANTAMAX`, `RAID_LEVEL_6` e nível de atacante `40`.
+- `GET /rankings/attackers/levels/{level}/defenders/levels/{level}/strategies/{attack}/{defense}`: ranking geral de atacantes; evitar como primeira integração porque rankings globais simulam o meta completo e podem expirar.
+- `GET /rocket`: escalações atuais da Equipe GO Rocket. Não reutilizar os counters de raid.
+- `GET /pvp/rankings/{side}/leagues/{league}/strategies/PVP/PVP`: ranking PvP por liga; domínio separado de PvE.
 
-A documentação descreve os endpoints como leituras GET sem autenticação. Isso não constitui SLA nem garantia de estabilidade. Limites não são publicados na documentação comunitária.
+A documentação v2 descreve as rotas públicas como leituras GET sem autenticação. Isso não constitui SLA nem garantia de estabilidade. Limites não são publicados. A documentação recomenda cache agressivo, evitar consultas combinatórias e identificar o cliente com User-Agent descritivo. Atribuição ao Pokébattler é obrigatória ao publicar resultados derivados.
 
 ## Semântica obrigatória
 
-- **Estimator**: estimativa de quantos treinadores seriam necessários para vencer a raid; menor é melhor. Não é DPS, TDO, porcentagem nem nota universal.
+- **Estimator**: na documentação v2 atual, é apresentado como estimativa de quantos treinadores seriam necessários para vencer a raid; menor é melhor. Não é DPS, TDO, porcentagem nem nota universal. Outras páginas/versões podem usar métricas como mortes por raid; nunca assumir semântica sem registrar a versão e o contexto da interface/API.
 - Resultados são simulações e dependem de nível do atacante, boss/tier, clima, estratégia de ataque, estratégia de esquiva e agregação.
 - A lista de counters pode apresentar o melhor moveset por espécie, enquanto o estimador pode ser agregado entre diferentes movesets do boss. Preservar essa distinção ao exibir.
 - Raids usam equipe de seis Pokémon; Max Battles e Rocket têm regras próprias e não devem reutilizar automaticamente a classificação de raids.
@@ -55,7 +57,8 @@ Para cada snapshot de counter, persistir pelo menos: boss/form, tier, nível dos
 Registrar endpoints, semântica, limites e critérios de aceitação. Nenhuma chamada automática foi ativada.
 
 ### Fase 1 — contrato e fixtures
-- Obter respostas reais de uma consulta de raid e de `/moves` em ambiente de desenvolvimento.
+- Obter respostas reais de `/raids`, `/moves` e uma consulta de counters em ambiente de desenvolvimento.
+- Copiar a URL exata da página de desenvolvedor atual e verificar a rota/params; a documentação comunitária tem páginas/versões diferentes e não se deve inferir equivalência entre elas.
 - Guardar fixtures pequenas e sanitizadas com URL, data e contexto.
 - Definir tipos TypeScript a partir do payload observado, não de suposições.
 - Testar campos ausentes, mudanças de formato, resposta vazia e erro HTTP.
@@ -85,3 +88,10 @@ Habilitar `pokebattler` em `data_sources` somente após revisão dos termos, fix
 - [ ] Fonte, parâmetros e timestamp visíveis na interface.
 - [ ] Estimator nunca apresentado como DPS/TDO.
 - [ ] Provedor só habilitado depois de todos os itens acima.
+
+
+## Revisão de versão do contrato (2026-10-30)
+
+A documentação v2 atual lista também `/rocket`, rankings PvP por liga e a API de counters por boss. Ela explicita parâmetros `sort`, `weatherCondition`, `dodgeStrategy` e `aggregation`, e alerta que rankings globais são caros; para consultas de baixa latência, preferir counters pré-calculados por boss. Há documentação mais antiga com nomenclatura diferente para o Estimator (por exemplo, mortes por raid). O adaptador deverá registrar a versão/contexto da fonte e nunca assumir que métricas com o mesmo rótulo têm a mesma definição entre versões.
+
+**Bloqueio atual:** o endpoint HTTP não foi capturado neste repositório como fixture real. Portanto, nenhuma interface TypeScript nem integração de produção deve ser escrita até validar uma resposta JSON real e a URL exata usada pela versão atual.
