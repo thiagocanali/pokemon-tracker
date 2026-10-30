@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { getDataSourceHealth, type DataSourceHealth } from "../data/health";
+import { formatSourceDate, getDataSourceHealth, type DataSourceHealth } from "../data/health";
 
 const sources = ref<DataSourceHealth[]>([]);
 const sourcesError = ref("");
@@ -18,7 +18,7 @@ onMounted(async () => {
   <main class="moves-page page-shell">
     <section class="page-intro"><div><p class="eyebrow">DATABASE / MOVES</p><h1>Moves de Pokémon GO</h1><p>Dados de dano, energia e desempenho ainda dependem de uma fonte específica de Pokémon GO.</p></div><div class="result-count"><strong>—</strong><span>moves verificados</span></div></section>
     <section class="tool-panel"><p class="search-status">Nenhum provider de moves de Pokémon GO está conectado. Dados de jogos principais não são usados como substitutos.</p></section>
-    <section class="source-panel" aria-labelledby="sources-title"><div><p class="eyebrow">PROVENIÊNCIA</p><h2 id="sources-title">Fontes conectadas</h2></div><p v-if="sourcesError" class="source-error">{{ sourcesError }}</p><div v-else-if="!sources.length" class="source-empty">Nenhuma fonte catalogada.</div><div v-else class="source-list"><article v-for="source in sources" :key="source.id" class="source-item"><div><strong>{{ source.name }}</strong><span>{{ source.scope }}</span></div><span class="source-status" :class="source.lastStatus">{{ source.recordCount }} registros · {{ source.lastStatus === "unknown" ? "sem sincronização" : source.lastStatus }}</span><p v-if="source.limitations">{{ source.limitations }}</p></article></div></section>
+    <section class="source-panel" aria-labelledby="sources-title"><div><p class="eyebrow">PROVENIÊNCIA</p><h2 id="sources-title">Fontes conectadas</h2></div><p v-if="sourcesError" class="source-error">{{ sourcesError }}</p><div v-else-if="!sources.length" class="source-empty">Nenhuma fonte catalogada.</div><div v-else class="source-list"><article v-for="source in sources" :key="source.id" class="source-item"><div><strong>{{ source.name }}</strong><span>{{ source.scope }}</span></div><span class="source-status" :class="source.lastStatus">{{ source.recordCount }} registros · {{ source.lastStatus === "unknown" ? "sem sincronização" : source.lastStatus }}</span><p>Última verificação: {{ formatSourceDate(source.lastCheckedAt) }}</p><p v-if="source.limitations">{{ source.limitations }}</p></article></div></section>
     <section class="moves-table" aria-label="Disponibilidade dos dados"><p class="empty-state">A database será exibida quando houver dados de moves de Pokémon GO com fonte e atualização rastreáveis.</p></section>
   </main>
 </template>

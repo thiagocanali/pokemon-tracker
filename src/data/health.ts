@@ -12,6 +12,11 @@ export type DataSourceHealth = {
   recordCount: number;
 };
 
+export function formatSourceDate(value: string | null) {
+  if (!value) return "Ainda não verificada";
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
 export async function getDataSourceHealth(): Promise<DataSourceHealth[]> {
   const { data, error } = await supabase
     .from("data_sources")
