@@ -1,20 +1,55 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { computed, onMounted, ref } from "vue";
+import { supabase } from "../lib/supabase";
+
+type RaidBoss = { tier: string; pokemon_forms: { slug: string; names: Record<string,string>; pokemon_species: { names: Record<string,string>; dex_number: number } | null } | null };
+type RaidRotation = { id: string; starts_at: string; ends_at: string; source_url: string; raid_rotation_bosses: RaidBoss[] };
+const rotations = ref<RaidRotation[]>([]);
+const loading = ref(true);
+const error = ref("");
+const now = new Date();
+const dateLabel = (value: string) => new Intl.DateTimeFormat("pt-BR",{dateStyle:"medium"}).format(new Date(value));
+const statusLabel = (rotation: RaidRotation) => new Date(rotation.starts_at) > now ? "Próxima" : "Ativa";
+const bossName = (boss: RaidBoss) => boss.pokemon_forms?.names?.["pt-BR"] || boss.pokemon_forms?.names?.en || boss.pokemon_forms?.slug || "Pokémon";
+const sprite = (boss: RaidBoss) => { const id=boss.pokemon_forms?.pokemon_species?.dex_number; return id ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png` : ""; };
+const activeRotations = computed(() => rotations.value.filter((rotation) => new Date(rotation.ends_at) >= now));
+onMounted(async () => {
+  if (!supabase) { error.value = "Configure o Supabase para consultar as rotações."; loading.value=false; return; }
+  try {
+    const { data, error: queryError } = await supabase.from("raid_rotations")
+      .select("id,starts_at,ends_at,source_url,raid_rotation_bosses(tier,pokemon_forms(slug,names,pokemon_species(names,dex_number)))")
+      .gte("ends_at", now.toISOString()).order("starts_at").limit(20);
+    if (queryError) throw queryError;
+    rotations.value = (data ?? []) as unknown as RaidRotation[];
+  } catch { error.value = "Não foi possível consultar as rotações de raid."; }
+  finally { loading.value=false; }
+});
+</script>
 
 <template>
   <main class="raids-page">
     <section class="page-heading">
-      <div><p class="eyebrow">INTELIGÊNCIA DE RAIDS</p><h1>Raids</h1><p class="lede">A rotação e os counters só serão exibidos quando uma fonte de Pokémon GO estiver conectada.</p></div>
-      <div class="heading-status"><span class="live-dot"></span><span>Sem fonte conectada</span><small>Dados não verificados</small></div>
+      <div><p class="eyebrow">INTELIGÊNCIA DE RAIDS</p><h1>Raids</h1><p class="lede">Rotações e chefes cadastrados por fontes verificáveis de Pokémon GO.</p></div>
+      <div class="heading-status"><span class="live-dot"></span><span>{{ activeRotations.length ? "Dados catalogados" : "Sem rotação cadastrada" }}</span><small>Agenda baseada no Supabase</small></div>
     </section>
-
-    <p class="raid-empty">Não há chefes, períodos ou recomendações de raid verificados para exibir.</p>
+    <p v-if="loading" class="raid-empty">Carregando rotações...</p>
+    <p v-else-if="error" class="raid-empty">{{ error }}</p>
+    <p v-else-if="!activeRotations.length" class="raid-empty">Não há chefes ou períodos de raid verificados para exibir. A PokéAPI não fornece rotações de Pokémon GO.</p>
+    <section v-else class="rotation-list">
+      <article v-for="rotation in activeRotations" :key="rotation.id" class="rotation-card">
+        <header><div><span class="eyebrow">ROTAÇÃO</span><h2>{{ statusLabel(rotation) }}</h2></div><a :href="rotation.source_url" target="_blank" rel="noreferrer">Ver fonte ↗</a></header>
+        <p class="period">{{ dateLabel(rotation.starts_at) }} — {{ dateLabel(rotation.ends_at) }}</p>
+        <div class="boss-grid">
+          <article v-for="boss in rotation.raid_rotation_bosses" :key="boss.tier + bossName(boss)" class="boss-card">
+            <img v-if="sprite(boss)" :src="sprite(boss)" :alt="bossName(boss)" />
+            <span class="tier">{{ boss.tier }}</span><strong>{{ bossName(boss) }}</strong>
+          </article>
+        </div>
+      </article>
+    </section>
   </main>
 </template>
 
 <style scoped>
-.raids-page{max-width:1180px;margin:0 auto;padding:64px 32px 96px}.raid-search{display:flex;align-items:center;gap:10px;margin:-22px 0 28px;padding:12px 14px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface-muted);color:var(--muted)}.raid-search input{flex:1;border:0;outline:0;background:transparent;color:var(--text);font:inherit;font-size:12px}.raid-search span:last-child{font-size:10px}.raid-empty{padding:24px;border:1px dashed var(--line-strong);border-radius:12px;color:var(--muted);font-size:13px}.page-heading{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:42px}.eyebrow,.section-label{margin:0 0 10px;color:var(--accent-bright);font-size:10px;font-weight:800;letter-spacing:.16em}.page-heading h1{margin:0;font-size:46px;letter-spacing:-.06em}.lede{max-width:530px;margin:12px 0 0;color:var(--muted);font-size:15px;line-height:1.6}.heading-status{display:grid;grid-template-columns:auto auto;gap:4px 8px;align-items:center;color:var(--text);font-size:11px}.heading-status small{grid-column:2;color:var(--muted);font-size:9px}.live-dot{width:7px;height:7px;border-radius:50%;background:#48d49b;box-shadow:0 0 0 4px #48d49b22}.hero-raid{position:relative;display:grid;grid-template-columns:1.25fr .75fr auto;align-items:center;min-height:285px;overflow:hidden;padding:40px 52px;border:1px solid #7861d655;border-radius:18px;background:linear-gradient(110deg,#1d1737,#181d3a 68%,#211e4c);box-shadow:0 22px 60px #0004}.hero-copy{position:relative;z-index:1}.pill{display:inline-block;padding:6px 10px;border-radius:5px;background:#9175ff22;color:#c2b3ff;font-size:9px;font-weight:800;letter-spacing:.12em}.hero-copy h2{max-width:420px;margin:18px 0 10px;font-size:32px;letter-spacing:-.05em}.hero-copy p{max-width:420px;margin:0 0 24px;color:#bbb9d4;font-size:13px;line-height:1.6}.primary-action{display:inline-flex;gap:18px;align-items:center;color:#fff;font-size:12px;font-weight:800;text-decoration:none}.primary-action span{font-size:18px;color:#b4a2ff}.hero-orbit{position:relative;display:grid;place-items:center;height:220px}.hero-orbit img{position:relative;width:150px;image-rendering:pixelated;filter:drop-shadow(0 12px 18px #a78bfa88)}.orbit-ring{position:absolute;width:220px;height:100px;border:1px solid #9f8cff55;border-radius:50%;transform:rotate(-20deg)}.hero-meta{display:flex;gap:24px;padding-left:32px;border-left:1px solid #ffffff20}.hero-meta div{display:grid;gap:3px}.hero-meta strong{font-size:23px;color:#fff}.hero-meta span{color:#aaa9c5;font-size:10px}.toolbar{display:flex;justify-content:space-between;align-items:end;margin:64px 0 24px}.toolbar h2{margin:0;font-size:22px;letter-spacing:-.04em}.filters{display:flex;gap:6px}.filters button{padding:9px 13px;border:1px solid var(--line-strong);border-radius:7px;background:transparent;color:var(--muted);font-size:10px;cursor:pointer}.filters button.active,.filters button:hover{border-color:#8870ff;background:#8065ff18;color:var(--text)}.raid-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.raid-card{padding:18px;border:1px solid var(--line);border-radius:12px;background:var(--surface);transition:transform .2s,border-color .2s}.raid-card:hover{transform:translateY(-4px);border-color:#8370e980}.card-top,.card-bottom{display:flex;justify-content:space-between;align-items:center}.raid-tier{font-size:10px;font-weight:800}.raid-status{padding:4px 7px;border-radius:4px;background:#44d89a18;color:#55dba5;font-size:9px}.raid-status.upcoming{background:#ffffff0d;color:var(--muted)}.pokemon-art{display:grid;place-items:center;height:150px;margin:12px -2px;background:radial-gradient(circle,var(--raid-accent)22 0,transparent 62%)}.pokemon-art img{width:105px;height:105px;image-rendering:pixelated;filter:drop-shadow(0 8px 9px #0007)}.raid-card h3{margin:0;font-size:17px}.raid-card>p{margin:6px 0 20px;color:var(--muted);font-size:11px}.card-bottom{padding-top:13px;border-top:1px solid var(--line);color:var(--muted);font-size:10px}.card-bottom a{color:var(--accent-bright);font-weight:800;text-decoration:none}.card-bottom a span{font-size:14px}@media(max-width:850px){.hero-raid{grid-template-columns:1fr .6fr;padding:30px}.hero-meta{display:none}.raid-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.raids-page{padding:40px 18px}.page-heading,.toolbar{display:block}.heading-status{margin-top:20px}.filters{margin-top:18px;overflow:auto}.hero-raid{display:block}.hero-orbit{position:absolute;right:-25px;top:28px;opacity:.7}.hero-copy{max-width:80%}.raid-grid{grid-template-columns:1fr}.page-heading h1{font-size:38px}}
+.raids-page{max-width:1180px;margin:0 auto;padding:64px 32px 96px}.page-heading{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:42px}.eyebrow{margin:0 0 10px;color:var(--accent-bright);font-size:10px;font-weight:800;letter-spacing:.16em}.page-heading h1{margin:0;font-size:46px;letter-spacing:-.06em}.lede{max-width:530px;margin:12px 0 0;color:var(--muted);font-size:15px;line-height:1.6}.heading-status{display:grid;grid-template-columns:auto auto;gap:4px 8px;align-items:center;color:var(--text);font-size:11px}.heading-status small{grid-column:2;color:var(--muted);font-size:9px}.live-dot{width:7px;height:7px;border-radius:50%;background:#a68cff;box-shadow:0 0 0 4px #a68cff22}.raid-empty{padding:24px;border:1px dashed var(--line-strong);border-radius:12px;color:var(--muted);font-size:13px}.rotation-list{display:grid;gap:18px}.rotation-card{padding:24px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}.rotation-card header{display:flex;justify-content:space-between;align-items:center}.rotation-card h2{margin:0;font-size:22px}.rotation-card header a{color:var(--accent-bright);font-size:11px}.period{color:var(--muted);font-size:12px}.boss-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:20px}.boss-card{display:grid;justify-items:center;gap:8px;padding:15px;border:1px solid var(--line);border-radius:10px}.boss-card img{width:90px;height:90px;object-fit:contain}.boss-card strong{font-size:12px}.tier{color:var(--accent-bright);font-size:10px;text-transform:uppercase}@media(max-width:600px){.raids-page{padding:40px 18px}.page-heading{display:block}.heading-status{margin-top:20px}.rotation-card{padding:17px}.boss-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
-
-<style>
-:global(.dark) .raids-page{}
-</style> 

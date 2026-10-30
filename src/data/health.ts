@@ -18,6 +18,8 @@ export function formatSourceDate(value: string | null) {
 }
 
 export async function getDataSourceHealth(): Promise<DataSourceHealth[]> {
+  if (!supabase) return [];
+
   const { data, error } = await supabase
     .from("data_sources")
     .select("id, name, url, scope, limitations, last_status, last_checked_at, last_success_at")
@@ -25,13 +27,17 @@ export async function getDataSourceHealth(): Promise<DataSourceHealth[]> {
     .order("name");
 
   if (error) throw error;
+
   const counts = await Promise.all((data ?? []).map(async (source) => {
-    const { count } = await supabase
-      .from("pokemon_records")
+    if (source.id !== "pokeapi") return [source.id, 0] as const;
+    const { count, error: countError } = await supabase
+      .from("pokemon_species")
       .select("id", { count: "exact", head: true })
       .eq("source_id", source.id);
+    if (countError) return [source.id, 0] as const;
     return [source.id, count ?? 0] as const;
   }));
+
   const recordCounts = new Map(counts);
   return (data ?? []).map((source) => ({
     id: source.id,
