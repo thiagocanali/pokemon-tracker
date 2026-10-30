@@ -13,6 +13,7 @@ const teamName = ref("Meu time");
 const savedTeams = ref<Array<{ id: string; name: string; pokemon_ids: number[] }>>([]);
 const userId = ref<string | null>(null);
 const saving = ref(false);
+const selectedSavedTeamId = ref<string | null>(null);
 
 const team = computed(() => slots.value.filter((pokemon): pokemon is Pokemon => Boolean(pokemon)));
 const uniqueTypes = computed(() => new Set(team.value.flatMap((pokemon) => pokemon.types.map(({ type }) => type.name))));
@@ -49,6 +50,8 @@ function removePokemon(index: number) {
 
 function clearTeam() {
   slots.value = [null, null, null, null, null, null];
+  selectedSavedTeamId.value = null;
+  teamName.value = "Meu time";
   message.value = "";
 }
 
@@ -89,16 +92,29 @@ async function saveTeam() {
     message.value = "Adicione pelo menos um Pokémon antes de salvar.";
     return;
   }
+  const normalizedName = teamName.value.trim();
+  if (!normalizedName || normalizedName.length > 80) {
+    message.value = "Informe um nome entre 1 e 80 caracteres.";
+    return;
+  }
+
   saving.value = true;
   message.value = "";
-  const payload = { name: teamName.value.trim() || "Meu time", pokemon_ids: team.value.map(({ id }) => id), updated_at: new Date().toISOString() };
+  const payload = { name: normalizedName, pokemon_ids: team.value.map(({ id }) => id), updated_at: new Date().toISOString() };
   try {
-    const { data, error } = await supabase.from("saved_teams").insert({ ...payload, user_id: userId.value }).select("id, name, pokemon_ids").single();
-    if (error) {
+    const result = selectedSavedTeamId.value
+      ? await supabase.from("saved_teams").update(payload).eq("id", selectedSavedTeamId.value).eq("user_id", userId.value).select("id, name, pokemon_ids").single()
+      : await supabase.from("saved_teams").insert({ ...payload, user_id: userId.value }).select("id, name, pokemon_ids").single();
+
+    if (result.error || !result.data) {
       message.value = "Não foi possível salvar o time agora.";
-    } else if (data) {
-      savedTeams.value.unshift({ id: data.id, name: data.name, pokemon_ids: data.pokemon_ids as number[] });
-      message.value = "Time salvo com sucesso.";
+    } else {
+      const saved = { id: result.data.id, name: result.data.name, pokemon_ids: result.data.pokemon_ids as number[] };
+      const existingIndex = savedTeams.value.findIndex((item) => item.id === saved.id);
+      if (existingIndex >= 0) savedTeams.value.splice(existingIndex, 1);
+      savedTeams.value.unshift(saved);
+      selectedSavedTeamId.value = saved.id;
+      message.value = selectedSavedTeamId.value ? "Time salvo com sucesso." : "Time atualizado com sucesso.";
     }
   } catch {
     message.value = "Não foi possível salvar o time agora.";
@@ -107,11 +123,20 @@ async function saveTeam() {
   }
 }
 
-async function loadTeam(saved: { name: string; pokemon_ids: number[] }) {
-  const loaded = await Promise.all(saved.pokemon_ids.slice(0, 6).map((id) => store.getPokemon(id).catch(() => null)));
-  slots.value = [...loaded, ...Array(6 - loaded.length).fill(null)] as (Pokemon | null)[];
-  teamName.value = saved.name;
-  message.value = `${saved.name} carregado.`;
+async function loadTeam(saved: { id: string; name: string; pokemon_ids: number[] }) {
+  loading.value = true;
+  try {
+    const loaded = await Promise.all(saved.pokemon_ids.slice(0, 6).map((id) => store.getPokemon(id).catch(() => null)));
+    const valid = loaded.filter((pokemon): pokemon is Pokemon => Boolean(pokemon));
+    slots.value = [...valid, ...Array(6 - valid.length).fill(null)] as (Pokemon | null)[];
+    teamName.value = saved.name;
+    selectedSavedTeamId.value = saved.id;
+    message.value = valid.length === saved.pokemon_ids.length
+      ? `${saved.name} carregado.`
+      : `${saved.name} carregado parcialmente: alguns Pokémon não puderam ser encontrados.`;
+  } finally {
+    loading.value = false;
+  }
 }
 
 async function deleteTeam(id: string) {
@@ -121,6 +146,7 @@ async function deleteTeam(id: string) {
     const { error } = await supabase.from("saved_teams").delete().eq("id", id);
     if (!error) {
       savedTeams.value = savedTeams.value.filter((saved) => saved.id !== id);
+      if (selectedSavedTeamId.value === id) selectedSavedTeamId.value = null;
       message.value = "Time excluído.";
     } else {
       message.value = "Não foi possível excluir o time agora.";
@@ -160,7 +186,7 @@ onUnmounted(() => {
       <div class="team-panel panel">
         <div class="panel-heading"><div><p class="section-kicker">SEU TIME</p><h2>{{ team.length }} <span>/ 6 Pokémon</span></h2></div><button class="text-button" type="button" @click="clearTeam">Limpar time</button></div>
         <form class="search-row" @submit.prevent="addPokemon"><label class="sr-only" for="team-search">Adicionar Pokémon</label><input id="team-search" v-model="query" placeholder="Digite nome ou número do Pokémon" autocomplete="off"/><button class="primary-button" type="submit" :disabled="loading">{{ loading ? "Buscando..." : "Adicionar" }}</button></form>
-        <div class="save-row"><label for="team-name">Nome do time</label><input id="team-name" v-model="teamName" maxlength="80" placeholder="Meu time"/><button class="save-button" type="button" :disabled="saving" @click="saveTeam">{{ saving ? "Salvando..." : "Salvar time" }}</button></div>
+        <div class="save-row"><label for="team-name">Nome do time</label><input id="team-name" v-model="teamName" maxlength="80" placeholder="Meu time"/><button class="save-button" type="button" :disabled="saving" @click="saveTeam">{{ saving ? "Salvando..." : selectedSavedTeamId ? "Atualizar time" : "Salvar time" }}</button></div>
         <p v-if="message" class="feedback" role="status">{{ message }}</p>
         <div class="team-grid">
           <article v-for="(pokemon, index) in slots" :key="index" class="team-slot" :class="{ filled: pokemon }">
