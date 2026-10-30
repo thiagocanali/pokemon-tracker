@@ -3,12 +3,15 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { usePokemonStore } from "../store/pokemon";
 import PokemonCard from "../components/PokemonCard.vue";
+import { getDataSourceHealth, type DataSourceHealth } from "../data/health";
 
 const store = usePokemonStore();
 const query = ref("");
 const searchInput = ref<HTMLInputElement | null>(null);
 const featured = computed(() => store.list.slice(0, 4));
 const searchResults = computed(() => store.searchResults.slice(0, 5));
+const sources = ref<DataSourceHealth[]>([]);
+const pokeApiSource = computed(() => sources.value.find((source) => source.id === "pokeapi"));
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 function handleSearchShortcut(event: KeyboardEvent) {
@@ -35,6 +38,7 @@ watch(query, (value) => {
 
 onMounted(async () => {
   window.addEventListener("keydown", handleSearchShortcut);
+  try { sources.value = await getDataSourceHealth(); } catch { sources.value = []; }
   if (store.list.length === 0) await store.init();
   if (store.list.length === 0) await store.loadList(1);
 });
@@ -67,7 +71,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="section-block">
-      <div class="section-heading"><div><span class="eyebrow">Estado das fontes</span><h2>Dados disponíveis</h2></div><span class="status-pill">PokéAPI · dados gerais</span></div>
+      <div class="section-heading"><div><span class="eyebrow">Estado das fontes</span><h2>Dados disponíveis</h2></div><span class="status-pill">{{ pokeApiSource ? `PokéAPI · ${pokeApiSource.lastStatus === "unknown" ? "sem sincronização" : pokeApiSource.lastStatus}` : "Fontes não verificadas" }}</span></div>
       <div class="insight-grid">
         <article class="insight-card highlight"><div class="card-icon">◈</div><span class="card-label">Eventos e temporadas</span><h3>Fonte não conectada</h3><p>Não há calendário GO verificado disponível nesta versão.</p><RouterLink to="/events">Abrir eventos <span>→</span></RouterLink></article>
         <article class="insight-card"><div class="card-icon violet">✦</div><span class="card-label">Batalhas e rankings</span><h3>Dados GO indisponíveis</h3><p>Rankings PvP, raids e recomendações dependem de providers próprios.</p><RouterLink to="/counters">Ver análise de tipos <span>→</span></RouterLink></article>
