@@ -22,10 +22,11 @@ O cadastro de uma fonte **não significa** que ela já esteja integrada ou que s
 | PvPoke | PvP / GO Battle League | Código aberto sob licença MIT; rankings são gerados por simulações 1 vs 1. Guardar regras, versão e data. Simulação não representa todas as decisões dinâmicas de uma batalha real. Nunca reutilizar ranking PvP como PvE. |
 | Leek Duck | Eventos, calendário e rotações | Candidato para eventos. Guardar URL do evento, horário/fuso e momento da verificação. Confirmar anúncios com canais oficiais quando possível. |
 | Pokémon GO Hub | Database e ferramentas comunitárias | Fonte secundária/agregadora. Registrar metodologia e créditos do conjunto específico utilizado. |
+| Pokémon GO API (community) | JSON de Pokédex e algumas rotações | API agregadora baseada em Game Master e feeds comunitários. Raids/Max Battles/quests podem vir de fontes distintas; verificar origem por endpoint. O projeto declara uso educacional e direitos de terceiros sobre os dados do jogo. |
 
 ## Estado da integração
 - PokéAPI: integração existente para catálogo geral.
-- PokeMiners, Pokébattler, PvPoke, Leek Duck e Pokémon GO Hub: registrados como candidatos e desabilitados. Não há ingestão ativa desses provedores neste momento.
+- PokeMiners, Pokébattler, PvPoke, Leek Duck, Pokémon GO Hub e Pokémon GO API (community): registrados como candidatos e desabilitados. Não há ingestão ativa desses provedores neste momento.
 - Não apresentar candidatos como fontes sincronizadas.
 - Antes de habilitar um provedor, implementar adaptador isolado, validação de schema, testes com fixtures versionadas, detecção de alterações e tratamento de falhas/limites.
 
