@@ -102,7 +102,9 @@ Deno.serve(async (request) => {
 
       const { error: formError } = await supabase.from("pokemon_forms").upsert({
         id: formId, species_id: speciesId, slug: pokemon.name,
-        names: { en: pokemon.name }, variant: "standard", is_default: true,
+        names: { en: pokemon.name },
+        variant: pokemon.name === species.name ? "standard" : "other",
+        is_default: pokemon.name === species.name,
         availability: "unknown", source_id: SOURCE_ID, source_url: entry.url,
         collected_at: collectedAt, confidence: 1,
       }, { onConflict: "id" });
