@@ -2,7 +2,7 @@
 -- Providers remain disabled until an adapter, validation rules, and permitted access method exist.
 insert into public.data_sources (id, name, url, scope, limitations, terms_url)
 values
-('pokeminers','PokeMiners','https://github.com/PokeMiners','Referência comunitária para dados extraídos dos arquivos do jogo (Game Master/assets).','Não é uma API oficial da Niantic. A disponibilidade, formato e frequência dos arquivos podem mudar. Exigir origem e versão identificáveis.','https://github.com/PokeMiners'),
+('pokeminers','PokeMiners','https://github.com/PokeMiners/game_masters','Referência comunitária para dados extraídos dos arquivos do jogo (Game Master/assets).','Não é uma API oficial da Niantic. A disponibilidade, formato e frequência dos arquivos podem mudar. Exigir origem e versão identificáveis.','https://github.com/PokeMiners'),
 ('pokebattler','Pokebattler','https://www.pokebattler.com/developers','Simulações PvE, counters de reides, rankings e dados de combate.','API comunitária não oficial, sem SLA publicado e sujeita a mudanças e limites. Resultados dependem de nível, moveset, estratégia, clima e parâmetros.','https://www.pokebattler.com/developers'),
 ('pvpoke','PvPoke','https://pvpoke.com/','Rankings, simulações e recomendações para GO Battle League/PvP.','Rankings são simulações e dependem de liga, formato, regras, versão dos dados e parâmetros. Não usar como ranking PvE.','https://pvpoke.com/'),
 ('leekduck','Leek Duck','https://leekduck.com/','Referência comunitária para eventos, calendários, raids, pesquisas e rotações.','Eventos podem ser atualizados ou corrigidos. Exigir datas, fuso horário, coleta e link direto para cada publicação.','https://leekduck.com/'),
