@@ -31,7 +31,7 @@ watch(query,(value)=>{
   window.clearTimeout(searchTimer);
   const requestId=++searchRequestId;
   rankingRequestId++;
-  remoteTarget.value=null;rankings.value=[];rankingError="";
+  remoteTarget.value=null;rankings.value=[];rankingError.value="";
   const normalized=value.trim();
   if(!normalized){searchLoading.value=false;return;}
   searchTimer=window.setTimeout(async()=>{
