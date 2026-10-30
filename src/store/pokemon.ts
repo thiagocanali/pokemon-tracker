@@ -31,13 +31,7 @@ export const usePokemonStore = defineStore("pokemon", {
         this.darkMode = dark;
         document.body.classList.toggle("dark", dark);
 
-        const localFavorites = localStorage.getItem("favorites");
-        try {
-          const parsedFavorites = localFavorites ? JSON.parse(localFavorites) : [];
-          this.favorites = Array.isArray(parsedFavorites) ? parsedFavorites.map(Number).filter(Number.isInteger) : [];
-        } catch {
-          this.favorites = [];
-        }
+        this.favorites = [];
         if (!supabase) return;
         await this.syncFavoritesFromAccount();
       })().finally(() => {
@@ -54,7 +48,6 @@ export const usePokemonStore = defineStore("pokemon", {
         const accountFavorites = data.user?.user_metadata?.favorites;
         if (!Array.isArray(accountFavorites)) return;
         this.favorites = accountFavorites.map(Number).filter(Number.isInteger);
-        localStorage.setItem("favorites", JSON.stringify(this.favorites));
       } catch {
         return;
       }
@@ -116,7 +109,6 @@ export const usePokemonStore = defineStore("pokemon", {
         this.favorites.push(id);
       }
 
-      localStorage.setItem("favorites", JSON.stringify(this.favorites));
       if (!supabase) return;
 
       try {
