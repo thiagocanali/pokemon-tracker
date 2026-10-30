@@ -101,6 +101,7 @@ async function saveTeam() {
   saving.value = true;
   message.value = "";
   const payload = { name: normalizedName, pokemon_ids: team.value.map(({ id }) => id), updated_at: new Date().toISOString() };
+  const wasUpdating = Boolean(selectedSavedTeamId.value);
   try {
     const result = selectedSavedTeamId.value
       ? await supabase.from("saved_teams").update(payload).eq("id", selectedSavedTeamId.value).eq("user_id", userId.value).select("id, name, pokemon_ids").single()
@@ -114,7 +115,7 @@ async function saveTeam() {
       if (existingIndex >= 0) savedTeams.value.splice(existingIndex, 1);
       savedTeams.value.unshift(saved);
       selectedSavedTeamId.value = saved.id;
-      message.value = selectedSavedTeamId.value ? "Time salvo com sucesso." : "Time atualizado com sucesso.";
+      message.value = wasUpdating ? "Time atualizado com sucesso." : "Time salvo com sucesso.";
     }
   } catch {
     message.value = "Não foi possível salvar o time agora.";
