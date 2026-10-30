@@ -22,6 +22,8 @@ Invoke one batch:
 ```sh
 curl -X POST "https://YOUR_PROJECT_REF.supabase.co/functions/v1/sync-pokemon-catalog" \
   -H "Content-Type: application/json" \
+  -H "apikey: YOUR_SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer YOUR_SUPABASE_ANON_KEY" \
   -H "x-sync-secret: YOUR_SYNC_SECRET" \
   -d '{"offset":0,"limit":20}'
 ```
