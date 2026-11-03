@@ -3,11 +3,12 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { supabase } from "../lib/supabase";
 import { usePokemonStore, type Pokemon } from "../store/pokemon";
+import { getPokemonDexNumber } from "../data/providers/contracts";
 
 const router = useRouter();
 const pokemonStore = usePokemonStore();
 const favoriteCount = computed(() => pokemonStore.favorites.length);
-const favoritePokemon = ref<{ id: number; name: string; sprite: string }[]>([]);
+const favoritePokemon = ref<{ id: number; dexNumber: number; name: string; sprite: string }[]>([]);
 const email = ref("");
 const loading = ref(true);
 const deleting = ref(false);
@@ -26,7 +27,7 @@ onMounted(async () => {
     );
     favoritePokemon.value = results
       .filter((pokemon): pokemon is Pokemon => pokemon !== null)
-      .map(({ id, name, sprites }) => ({ id, name, sprite: sprites.front_default }));
+      .map((pokemon) => ({ id: pokemon.id, dexNumber: getPokemonDexNumber(pokemon), name: pokemon.name, sprite: pokemon.sprites.front_default }));
   } catch {
     error.value = "Não foi possível carregar os dados da conta agora.";
   } finally {
@@ -88,7 +89,7 @@ async function deleteAccount() {
         <div class="favorite-grid">
           <RouterLink v-for="pokemon in favoritePokemon" :key="pokemon.id" :to="`/pokemon/${pokemon.id}`" class="favorite-item">
             <img :src="pokemon.sprite" :alt="pokemon.name" />
-            <span>#{{ String(pokemon.id).padStart(3, '0') }}</span>
+            <span>#{{ String(pokemon.dexNumber).padStart(3, '0') }}</span>
             <strong>{{ pokemon.name }}</strong>
           </RouterLink>
         </div>
