@@ -23,6 +23,7 @@ O cadastro de uma fonte **não significa** que ela já esteja integrada ou que s
 | Leek Duck | Eventos, calendário e rotações | Candidato para eventos. Guardar URL do evento, horário/fuso e momento da verificação. Confirmar anúncios com canais oficiais quando possível. |
 | Pokémon GO Hub | Database e ferramentas comunitárias | Fonte secundária/agregadora. Registrar metodologia e créditos do conjunto específico utilizado. |
 | Pokémon GO API (community) | JSON de Pokédex e algumas rotações | API agregadora baseada em Game Master e feeds comunitários. Raids/Max Battles/quests podem vir de fontes distintas; verificar origem por endpoint. O projeto declara uso educacional e direitos de terceiros sobre os dados do jogo. |
+| pogo-db-api (S-Tier-Devs) | Estimativas PvE, counters, raids e eventos | Fonte comunitária derivada de Game Master e feeds como Leek Duck. DPS/TDO/ER são calculados pelo projeto sob hipóteses próprias; não equivalem a simulação completa. Avaliação: [pogo-db-api](./pogo-db-api-evaluation.md). Manter desabilitada até validar fixtures, frescor, licença e direitos dos dados upstream. |
 
 ## Estado da integração
 - PokéAPI: integração existente para catálogo geral.
