@@ -7,31 +7,11 @@ import type { Pokemon } from "../store/pokemon";
 const route = useRoute();
 const store = usePokemonStore();
 const pokemon = ref<Pokemon | null>(null);
-const captureProgress = ref(0);
-const capturing = ref(false);
-const captureMessage = ref("");
 const detailError = ref("");
 let loadRequestId = 0;
 
 const totalStats = computed(() => pokemon.value?.stats?.reduce((total, stat) => total + stat.base_stat, 0) ?? 0);
 const isFavorite = computed(() => pokemon.value ? store.favorites.includes(pokemon.value.id) : false);
-
-const tryCapture = () => {
-  if (!pokemon.value || capturing.value) return;
-  capturing.value = true;
-  captureMessage.value = "Preparando captura...";
-  captureProgress.value = 0;
-  const interval = window.setInterval(() => {
-    captureProgress.value += Math.random() * 20;
-    if (captureProgress.value >= 100) {
-      captureProgress.value = 100;
-      window.clearInterval(interval);
-      capturing.value = false;
-      captureMessage.value = `${pokemon.value?.name} foi adicionado à sua coleção.`;
-      if (!isFavorite.value) store.toggleFavorite(pokemon.value!.id);
-    }
-  }, 350);
-};
 
 const loadPokemon = async (id: string) => {
   const requestId = ++loadRequestId;
@@ -61,17 +41,11 @@ watch(() => route.params.id, (id) => loadPokemon(id as string));
         </div>
         <p class="summary">Fonte: PokéAPI. Estes são dados gerais de Pokémon; stats, habilidades e moves específicos de Pokémon GO não estão conectados.</p>
         <div class="hero-actions">
-          <button class="button button-primary" type="button" @click="tryCapture" :disabled="capturing">{{ capturing ? "Capturando..." : isFavorite ? "Na sua coleção" : "Adicionar à coleção" }}</button>
-          <button class="button button-ghost" type="button" @click="store.toggleFavorite(pokemon!.id)">{{ isFavorite ? "Remover favorito" : "Salvar favorito" }}</button>
+          <button class="button button-primary" type="button" @click="store.toggleFavorite(pokemon!.id)">{{ isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos" }}</button>
         </div>
       </div>
       <div class="artwork"><div class="artwork-glow"></div><img :src="pokemon.sprites.front_default" :alt="`Ilustração de ${pokemon.name}`" /></div>
     </section>
-
-    <div v-if="capturing || captureMessage" class="capture-feedback" role="status">
-      <div class="capture-feedback-top"><span>{{ captureMessage || "Capturando..." }}</span><strong>{{ Math.round(captureProgress) }}%</strong></div>
-      <div class="capture-bar"><div class="progress" :style="{ width: `${captureProgress}%` }"></div></div>
-    </div>
 
     <section class="metrics-grid">
       <article><span class="metric-label">Altura</span><strong>{{ (pokemon.height! / 10).toFixed(1) }} m</strong><small>Medida base</small></article>
