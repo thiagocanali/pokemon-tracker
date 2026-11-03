@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import { usePokemonStore } from "../store/pokemon";
 import type { Pokemon } from "../store/pokemon";
+import { getPokemonDexNumber } from "../data/providers/contracts";
 
 const route = useRoute();
 const store = usePokemonStore();
@@ -34,7 +35,7 @@ watch(() => route.params.id, (id) => loadPokemon(id as string));
     <RouterLink class="back-link" to="/pokemon">← Voltar para a database</RouterLink>
     <section class="detail-hero">
       <div class="identity">
-        <span class="eyebrow">Pokédex #{{ String(pokemon.id).padStart(3, "0") }}</span>
+        <span class="eyebrow">Pokédex #{{ String(getPokemonDexNumber(pokemon)).padStart(3, "0") }}</span>
         <h1>{{ pokemon.name }}</h1>
         <div class="type-list">
           <span v-for="type in pokemon.types" :key="type.type.name" :class="['type-badge', type.type.name]">{{ type.type.name }}</span>
