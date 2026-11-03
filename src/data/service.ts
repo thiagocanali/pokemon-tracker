@@ -21,13 +21,25 @@ async function fromCanonicalStore(key: string): Promise<Pokemon | null> {
 
   let pokemonId = Number(key);
   if (!Number.isInteger(pokemonId) || pokemonId <= 0) {
-    const { data: species, error: speciesError } = await supabase
-      .from("pokemon_species")
-      .select("dex_number")
+    // Resolve a form slug first so alternate forms do not fall back to the species default.
+    const { data: form } = await supabase
+      .from("pokemon_forms")
+      .select("id")
       .eq("slug", key)
       .maybeSingle();
-    if (speciesError || !species) return null;
-    pokemonId = species.dex_number;
+
+    const formPokemonId = form?.id.startsWith("form-") ? Number(form.id.slice(5)) : NaN;
+    if (Number.isInteger(formPokemonId) && formPokemonId > 0) {
+      pokemonId = formPokemonId;
+    } else {
+      const { data: species, error: speciesError } = await supabase
+        .from("pokemon_species")
+        .select("dex_number")
+        .eq("slug", key)
+        .maybeSingle();
+      if (speciesError || !species) return null;
+      pokemonId = species.dex_number;
+    }
   }
 
   const { data, error } = await supabase
