@@ -28,7 +28,7 @@ async function fromCanonicalStore(key: string): Promise<Pokemon | null> {
       .eq("slug", key)
       .maybeSingle();
 
-    const formPokemonId = form?.id.match(/^form-(\\d+)$/)?.[1];
+    const formPokemonId = form?.id.startsWith("form-") ? form.id.slice(5) : undefined;
     if (formPokemonId) {
       pokemonId = Number(formPokemonId);
     } else {
