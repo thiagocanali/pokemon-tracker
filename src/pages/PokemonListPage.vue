@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { usePokemonStore } from "../store/pokemon";
+import { getPokemonDexNumber } from "../data/providers/contracts";
 
 const store = usePokemonStore();
 const query = ref("");
@@ -13,7 +14,7 @@ const visiblePokemon = computed(() => {
   const normalizedQuery = query.value.trim().toLowerCase();
   const source = query.value.trim() ? store.searchResults : store.list;
   return source.filter((pokemon) => {
-    const matchesQuery = !normalizedQuery || pokemon.name.includes(normalizedQuery) || String(pokemon.id) === normalizedQuery;
+    const matchesQuery = !normalizedQuery || pokemon.name.includes(normalizedQuery) || String(getPokemonDexNumber(pokemon)) === normalizedQuery;
     const matchesType = !selectedType.value || pokemon.types.some((type) => type.type.name === selectedType.value);
     return matchesQuery && matchesType;
   });
@@ -76,7 +77,7 @@ onMounted(async () => {
     <div v-if="store.loading" class="loading-state" role="status">Sincronizando database...</div>
     <section v-else class="pokemon-grid" aria-live="polite">
       <RouterLink v-for="pokemon in visiblePokemon" :key="pokemon.id" class="pokemon-tile" :to="`/pokemon/${pokemon.id}`">
-        <span class="pokemon-number">#{{ String(pokemon.id).padStart(3, "0") }}</span>
+        <span class="pokemon-number">#{{ String(getPokemonDexNumber(pokemon)).padStart(3, "0") }}</span>
         <img :src="pokemon.sprites.front_default" :alt="pokemon.name" loading="lazy" />
         <strong>{{ pokemon.name }}</strong>
         <span class="type-row"><span v-for="type in pokemon.types" :key="type.type.name" class="type-badge">{{ type.type.name }}</span></span>
