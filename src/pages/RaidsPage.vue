@@ -17,7 +17,7 @@ onMounted(async () => {
     const result = await getRaidRotations(now);
     rotations.value = result.data;
     if (result.status === "offline") {
-      notice.value = "Exibindo a última cópia local disponível; a atualização remota falhou.";
+      notice.value = "Últimas informações conhecidas — não foi possível confirmar a rotação atual.";
     }
   } catch {
     error.value = "Não foi possível consultar as rotações nem encontrar uma cópia local.";
@@ -31,7 +31,7 @@ onMounted(async () => {
   <main class="raids-page">
     <section class="page-heading">
       <div><p class="eyebrow">INTELIGÊNCIA DE RAIDS</p><h1>Raids</h1><p class="lede">Rotações e chefes cadastrados por fontes verificáveis de Pokémon GO.</p></div>
-      <div class="heading-status"><span class="live-dot"></span><span>{{ activeRotations.length ? "Dados catalogados" : "Sem rotação cadastrada" }}</span><small>Agenda baseada no Supabase</small></div>
+      <div class="heading-status"><span class="live-dot"></span><span>{{ notice ? "Último estado conhecido" : activeRotations.length ? "Dados catalogados" : "Sem rotação cadastrada" }}</span><small>Agenda baseada no Supabase</small></div>
     </section>
     <p v-if="notice" class="raid-empty">{{ notice }}</p>
     <p v-if="loading" class="raid-empty">Carregando rotações...</p>
@@ -39,7 +39,7 @@ onMounted(async () => {
     <p v-else-if="!activeRotations.length" class="raid-empty">Não há chefes ou períodos de raid verificados para exibir. A PokéAPI não fornece rotações de Pokémon GO.</p>
     <section v-else class="rotation-list">
       <article v-for="rotation in activeRotations" :key="rotation.id" class="rotation-card">
-        <header><div><span class="eyebrow">ROTAÇÃO</span><h2>{{ statusLabel(rotation) }}</h2></div><a :href="rotation.source_url" target="_blank" rel="noreferrer">Ver fonte ↗</a></header>
+        <header><div><span class="eyebrow">ROTAÇÃO</span><h2>{{ notice ? "Status não confirmado" : statusLabel(rotation) }}</h2></div><a :href="rotation.source_url" target="_blank" rel="noreferrer">Ver fonte ↗</a></header>
         <p class="period">{{ dateLabel(rotation.starts_at) }} — {{ dateLabel(rotation.ends_at) }}</p>
         <div class="boss-grid">
           <article v-for="boss in rotation.raid_rotation_bosses" :key="boss.tier + bossName(boss)" class="boss-card">
