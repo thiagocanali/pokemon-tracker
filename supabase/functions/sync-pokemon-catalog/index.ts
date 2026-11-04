@@ -4,6 +4,45 @@ const API_BASE = "https://pokeapi.co/api/v2";
 const SOURCE_ID = "pokeapi";
 const MAX_BATCH_SIZE = 25;
 
+const MAX_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 300;
+const RETRYABLE_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function fetchWithRetry(url: string): Promise<Response> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const response = await fetch(url);
+      if (!RETRYABLE_HTTP_STATUSES.has(response.status) || attempt >= MAX_RETRIES) return response;
+      await response.body?.cancel();
+    } catch (error) {
+      if (attempt >= MAX_RETRIES) throw error;
+    }
+    await wait(RETRY_BASE_DELAY_MS * 2 ** attempt);
+  }
+}
+
+function isRetryableRpcError(error: { code?: string; message?: string }) {
+  const code = error.code ?? '';
+  const message = error.message ?? '';
+  return code.startsWith('08') || code.startsWith('53') || code.startsWith('57')
+    || /timeout|timed out|temporar|network|connection reset|socket|503|502|504|429/i.test(message);
+}
+
+async function rpcWithRetry<T>(
+  operation: () => PromiseLike<{ data: T | null; error: { code?: string; message: string } | null }>,
+) {
+  for (let attempt = 0; ; attempt += 1) {
+    const result = await operation();
+    if (!result.error || !isRetryableRpcError(result.error) || attempt >= MAX_RETRIES) return result;
+    await wait(RETRY_BASE_DELAY_MS * 2 ** attempt);
+  }
+}
+
+
 type PokemonList = { count: number; results: { name: string; url: string }[] };
 type Pokemon = {
   id: number; name: string; height: number; weight: number;
@@ -66,16 +105,16 @@ Deno.serve(async (request) => {
   let recordsWritten = 0;
 
   try {
-    const listResponse = await fetch(`${API_BASE}/pokemon?limit=${limit}&offset=${offset}`);
+    const listResponse = await fetchWithRetry(`${API_BASE}/pokemon?limit=${limit}&offset=${offset}`);
     if (!listResponse.ok) throw new Error(`PokéAPI catalog returned HTTP ${listResponse.status}`);
     const catalog = (await listResponse.json()) as PokemonList;
     const collectedAt = new Date().toISOString();
 
     for (const entry of catalog.results) {
-      const pokemonResponse = await fetch(entry.url);
+      const pokemonResponse = await fetchWithRetry(entry.url);
       if (!pokemonResponse.ok) throw new Error(`Failed to fetch ${entry.name}: HTTP ${pokemonResponse.status}`);
       const pokemon = (await pokemonResponse.json()) as Pokemon;
-      const speciesResponse = await fetch(pokemon.species.url);
+      const speciesResponse = await fetchWithRetry(pokemon.species.url);
       if (!speciesResponse.ok) throw new Error(`Failed to fetch species for ${entry.name}: HTTP ${speciesResponse.status}`);
       const species = (await speciesResponse.json()) as Species;
       recordsRead += 1;
@@ -83,7 +122,7 @@ Deno.serve(async (request) => {
       const speciesId = `species-${species.id}`;
       const formId = `form-${pokemon.id}`;
 
-      const { error: recordError } = await supabase.rpc("sync_pokemon_catalog_record", {
+      const { error: recordError } = await rpcWithRetry(() => supabase.rpc("sync_pokemon_catalog_record", {
         p_species: {
           id: speciesId,
           dex_number: species.id,
@@ -122,19 +161,19 @@ Deno.serve(async (request) => {
           source_url: entry.url,
           captured_at: collectedAt,
         },
-      });
+      }));
       if (recordError) throw new Error(`Atomic save failed for ${pokemon.name}: ${recordError.message}`);
 
       recordsWritten += 1;
     }
 
-    const { error: finishError } = await supabase.rpc("finish_pokemon_catalog_sync", {
+    const { error: finishError } = await rpcWithRetry(() => supabase.rpc("finish_pokemon_catalog_sync", {
       p_run_id: run.id,
       p_status: "succeeded",
       p_records_read: recordsRead,
       p_records_written: recordsWritten,
       p_error: null,
-    });
+    }));
     if (finishError) throw new Error(`Could not finalize successful sync: ${finishError.message}`);
 
     return json({
@@ -144,13 +183,13 @@ Deno.serve(async (request) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown sync error";
-    const { error: finishError } = await supabase.rpc("finish_pokemon_catalog_sync", {
+    const { error: finishError } = await rpcWithRetry(() => supabase.rpc("finish_pokemon_catalog_sync", {
       p_run_id: run.id,
       p_status: "failed",
       p_records_read: recordsRead,
       p_records_written: recordsWritten,
       p_error: message,
-    });
+    }));
 
     return json({
       status: "failed",
