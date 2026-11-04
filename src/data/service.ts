@@ -94,7 +94,7 @@ export async function getCanonicalPokemon(value: string | number): Promise<Pokem
     const result: PokemonResult = { data, status: "fresh", source: "pokeapi" };
     memoryCache.set(key, { result, cachedAt: new Date().toISOString() });
     return result;
-  } catch {
+  } catch (error) {
     const stale = persistent
       ? { value: persistent.value, cachedAt: persistent.cachedAt, source: "indexeddb" as const }
       : cached
