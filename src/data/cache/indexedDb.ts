@@ -13,7 +13,7 @@ function openDatabase(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === "undefined") return Promise.resolve(null);
   if (databasePromise) return databasePromise;
 
-  databasePromise = new Promise((resolve) => {
+  databasePromise = new Promise<IDBDatabase | null>((resolve) => {
     let request: IDBOpenDBRequest;
 
     try {
@@ -40,7 +40,7 @@ function openDatabase(): Promise<IDBDatabase | null> {
     request.onblocked = () => resolve(null);
   }).catch(() => null);
 
-  return databasePromise;
+  return databasePromise!;
 }
 
 export async function readPersistentCache<T>(
