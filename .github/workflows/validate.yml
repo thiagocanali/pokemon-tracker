@@ -24,3 +24,9 @@ jobs:
         run: npm run typecheck
       - name: Build
         run: npm run build
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Test catalog sync validation
+        run: deno test --allow-net supabase/functions/sync-pokemon-catalog/validation_test.ts
