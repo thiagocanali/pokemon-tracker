@@ -33,7 +33,7 @@ function isRetryableRpcError(error: { code?: string; message?: string }) {
 }
 
 async function rpcWithRetry<T>(
-  operation: () => Promise<{ data: T | null; error: { code?: string; message: string } | null }>,
+  operation: () => PromiseLike<{ data: T | null; error: { code?: string; message: string } | null }>,
 ) {
   for (let attempt = 0; ; attempt += 1) {
     const result = await operation();
@@ -183,7 +183,7 @@ Deno.serve(async (request) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown sync error";
-    const { error: finishError } = await supabase.rpc("finish_pokemon_catalog_sync", {
+    const { error: finishError } = await rpcWithRetry(() => supabase.rpc("finish_pokemon_catalog_sync", {
       p_run_id: run.id,
       p_status: "failed",
       p_records_read: recordsRead,
