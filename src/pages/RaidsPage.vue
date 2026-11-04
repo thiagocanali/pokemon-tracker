@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { supabase } from "../lib/supabase";
+import { getRaidRotations, type RaidBoss, type RaidRotation } from "../data/goCatalog";
 
-type RaidBoss = { tier: string; pokemon_forms: { slug: string; names: Record<string,string>; pokemon_species: { names: Record<string,string>; dex_number: number } | null } | null };
-type RaidRotation = { id: string; starts_at: string; ends_at: string; source_url: string; raid_rotation_bosses: RaidBoss[] };
 const rotations = ref<RaidRotation[]>([]);
 const loading = ref(true);
 const error = ref("");
+const notice = ref("");
 const now = new Date();
 const dateLabel = (value: string) => new Intl.DateTimeFormat("pt-BR",{dateStyle:"medium"}).format(new Date(value));
 const statusLabel = (rotation: RaidRotation) => new Date(rotation.starts_at) > now ? "Próxima" : "Ativa";
@@ -14,15 +13,17 @@ const bossName = (boss: RaidBoss) => boss.pokemon_forms?.names?.["pt-BR"] || bos
 const sprite = (boss: RaidBoss) => { const id=boss.pokemon_forms?.pokemon_species?.dex_number; return id ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png` : ""; };
 const activeRotations = computed(() => rotations.value.filter((rotation) => new Date(rotation.ends_at) >= now));
 onMounted(async () => {
-  if (!supabase) { error.value = "Configure o Supabase para consultar as rotações."; loading.value=false; return; }
   try {
-    const { data, error: queryError } = await supabase.from("raid_rotations")
-      .select("id,starts_at,ends_at,source_url,raid_rotation_bosses(tier,pokemon_forms(slug,names,pokemon_species(names,dex_number)))")
-      .gte("ends_at", now.toISOString()).order("starts_at").limit(20);
-    if (queryError) throw queryError;
-    rotations.value = (data ?? []) as unknown as RaidRotation[];
-  } catch { error.value = "Não foi possível consultar as rotações de raid."; }
-  finally { loading.value=false; }
+    const result = await getRaidRotations(now);
+    rotations.value = result.data;
+    if (result.status === "offline") {
+      notice.value = "Exibindo a última cópia local disponível; a atualização remota falhou.";
+    }
+  } catch {
+    error.value = "Não foi possível consultar as rotações nem encontrar uma cópia local.";
+  } finally {
+    loading.value = false;
+  }
 });
 </script>
 
@@ -32,6 +33,7 @@ onMounted(async () => {
       <div><p class="eyebrow">INTELIGÊNCIA DE RAIDS</p><h1>Raids</h1><p class="lede">Rotações e chefes cadastrados por fontes verificáveis de Pokémon GO.</p></div>
       <div class="heading-status"><span class="live-dot"></span><span>{{ activeRotations.length ? "Dados catalogados" : "Sem rotação cadastrada" }}</span><small>Agenda baseada no Supabase</small></div>
     </section>
+    <p v-if="notice" class="raid-empty">{{ notice }}</p>
     <p v-if="loading" class="raid-empty">Carregando rotações...</p>
     <p v-else-if="error" class="raid-empty">{{ error }}</p>
     <p v-else-if="!activeRotations.length" class="raid-empty">Não há chefes ou períodos de raid verificados para exibir. A PokéAPI não fornece rotações de Pokémon GO.</p>

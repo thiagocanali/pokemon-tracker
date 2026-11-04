@@ -1,31 +1,29 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { supabase } from "../lib/supabase";
-
-type EventRow = { id:string; slug:string; names:Record<string,string>; description:Record<string,string>|null; starts_at:string; ends_at:string; timezone:string|null; source_url:string };
-type SeasonRow = { id:string; names:Record<string,string>; starts_at:string; ends_at:string; source_url:string };
+import { getEventsAndSeasons, type EventRow, type SeasonRow } from "../data/goCatalog";
 const events = ref<EventRow[]>([]);
 const seasons = ref<SeasonRow[]>([]);
 const loading = ref(true);
 const error = ref("");
+const notice = ref("");
 const now = new Date();
 const upcomingEvents = computed(() => events.value.filter((event) => new Date(event.ends_at) >= now));
 const eventName = (event: EventRow) => event.names?.["pt-BR"] || event.names?.en || event.slug;
 const seasonName = (season: SeasonRow) => season.names?.["pt-BR"] || season.names?.en || season.id;
 const dateRange = (start:string,end:string) => `${new Intl.DateTimeFormat("pt-BR",{dateStyle:"medium"}).format(new Date(start))} — ${new Intl.DateTimeFormat("pt-BR",{dateStyle:"medium"}).format(new Date(end))}`;
 onMounted(async () => {
-  if (!supabase) { error.value="Configure o Supabase para consultar o calendário."; loading.value=false; return; }
   try {
-    const [eventResult,seasonResult] = await Promise.all([
-      supabase.from("events").select("id,slug,names,description,starts_at,ends_at,timezone,source_url").gte("ends_at",now.toISOString()).order("starts_at").limit(30),
-      supabase.from("seasons").select("id,names,starts_at,ends_at,source_url").gte("ends_at",now.toISOString()).order("starts_at").limit(10),
-    ]);
-    if(eventResult.error) throw eventResult.error;
-    if(seasonResult.error) throw seasonResult.error;
-    events.value=(eventResult.data??[]) as EventRow[];
-    seasons.value=(seasonResult.data??[]) as SeasonRow[];
-  } catch { error.value="Não foi possível consultar o calendário."; }
-  finally { loading.value=false; }
+    const result = await getEventsAndSeasons(now);
+    events.value = result.events.data;
+    seasons.value = result.seasons.data;
+    if (result.events.status === "offline" || result.seasons.status === "offline") {
+      notice.value = "Exibindo a última cópia local disponível; a atualização remota falhou.";
+    }
+  } catch {
+    error.value = "Não foi possível consultar o calendário nem encontrar uma cópia local.";
+  } finally {
+    loading.value = false;
+  }
 });
 </script>
 
@@ -39,6 +37,7 @@ onMounted(async () => {
       <div class="hero-copy"><span class="live-pill">{{ loading ? "CONSULTANDO CALENDÁRIO" : upcomingEvents.length ? "AGENDA ATUALIZADA" : "SEM EVENTOS CADASTRADOS" }}</span><h2>Calendário Pokémon GO</h2><p>Datas e descrições vêm do catálogo conectado; nenhuma programação é presumida.</p></div>
       <div class="hero-metric"><strong>{{ upcomingEvents.length }}</strong><span>eventos catalogados</span></div>
     </section>
+    <p v-if="notice" class="empty-events">{{ notice }}</p>
     <p v-if="loading" class="empty-events">Carregando calendário...</p><p v-else-if="error" class="empty-events">{{ error }}</p>
     <div v-else class="events-layout">
       <section class="event-list"><div class="section-title"><div><p class="eyebrow">AGENDA</p><h2>Eventos</h2></div></div>
