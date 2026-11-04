@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { parseSyncPagination } from "./validation.ts";
 
 const API_BASE = "https://pokeapi.co/api/v2";
 const SOURCE_ID = "pokeapi";
@@ -83,15 +84,18 @@ Deno.serve(async (request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  let offset = 0;
-  let limit = 20;
-  try {
-    const body = await request.json();
-    offset = Math.max(0, Math.floor(Number(body.offset) || 0));
-    limit = Math.min(MAX_BATCH_SIZE, Math.max(1, Math.floor(Number(body.limit) || 20)));
-  } catch {
-    // Empty body uses safe defaults.
+  let body: unknown = {};
+  if (request.body) {
+    try {
+      body = await request.json();
+    } catch {
+      return json({ error: "Request body must contain valid JSON." }, 400);
+    }
   }
+
+  const pagination = parseSyncPagination(body);
+  if (!pagination.ok) return json({ error: pagination.error }, 400);
+  const { offset, limit } = pagination.value;
 
   const { data: run, error: runError } = await supabase
     .from("sync_runs")
