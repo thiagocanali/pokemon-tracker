@@ -73,80 +73,92 @@ Deno.serve(async (request) => {
 
     for (const entry of catalog.results) {
       const pokemonResponse = await fetch(entry.url);
-      if (!pokemonResponse.ok) throw new Error(`Failed to fetch ${entry.name}`);
+      if (!pokemonResponse.ok) throw new Error(`Failed to fetch ${entry.name}: HTTP ${pokemonResponse.status}`);
       const pokemon = (await pokemonResponse.json()) as Pokemon;
       const speciesResponse = await fetch(pokemon.species.url);
-      if (!speciesResponse.ok) throw new Error(`Failed to fetch species for ${entry.name}`);
+      if (!speciesResponse.ok) throw new Error(`Failed to fetch species for ${entry.name}: HTTP ${speciesResponse.status}`);
       const species = (await speciesResponse.json()) as Species;
       recordsRead += 1;
 
       const speciesId = `species-${species.id}`;
       const formId = `form-${pokemon.id}`;
 
-      const { error: speciesError } = await supabase.from("pokemon_species").upsert({
-        id: speciesId,
-        dex_number: species.id,
-        slug: species.name,
-        names: localizedMap(species.names),
-        generation: Number(species.generation?.name.match(/\d+/)?.[0]) || null,
-        category: Object.fromEntries(species.genera.map((item) => [item.language.name, item.genus])),
-        description: Object.fromEntries(species.flavor_text_entries
-          .filter((item) => item.language.name === "en" || item.language.name === "pt-BR")
-          .map((item) => [item.language.name, item.flavor_text.replace(/[\n\f]/g, " ")])),
-        source_id: SOURCE_ID,
-        source_url: pokemon.species.url,
-        collected_at: collectedAt,
-        confidence: 1,
-      }, { onConflict: "id" });
-      if (speciesError) throw new Error(`Species ${species.name}: ${speciesError.message}`);
-
-      const { error: formError } = await supabase.from("pokemon_forms").upsert({
-        id: formId, species_id: speciesId, slug: pokemon.name,
-        names: { en: pokemon.name },
-        variant: pokemon.name === species.name ? "standard" : "other",
-        is_default: pokemon.name === species.name,
-        availability: "unknown", source_id: SOURCE_ID, source_url: entry.url,
-        collected_at: collectedAt, confidence: 1,
-      }, { onConflict: "id" });
-      if (formError) throw new Error(`Form ${pokemon.name}: ${formError.message}`);
-
-      const { error: typesError } = await supabase.from("pokemon_form_types").upsert(
-        pokemon.types.map((item) => ({ form_id: formId, type_id: item.type.name, slot: item.slot })),
-        { onConflict: "form_id,slot" },
-      );
-      if (typesError) throw new Error(`Types ${pokemon.name}: ${typesError.message}`);
-
-      const { error: snapshotError } = await supabase.from("data_snapshots").upsert({
-        entity_type: "pokemon", entity_id: String(pokemon.id), version: collectedAt,
-        payload: pokemon, source_id: SOURCE_ID, source_url: entry.url, captured_at: collectedAt,
-      }, { onConflict: "entity_type,entity_id,version" });
-      if (snapshotError) throw new Error(`Snapshot ${pokemon.name}: ${snapshotError.message}`);
+      const { error: recordError } = await supabase.rpc("sync_pokemon_catalog_record", {
+        p_species: {
+          id: speciesId,
+          dex_number: species.id,
+          slug: species.name,
+          names: localizedMap(species.names),
+          generation: Number(species.generation?.name.match(/\d+/)?.[0]) || null,
+          category: Object.fromEntries(species.genera.map((item) => [item.language.name, item.genus])),
+          description: Object.fromEntries(species.flavor_text_entries
+            .filter((item) => item.language.name === "en" || item.language.name === "pt-BR")
+            .map((item) => [item.language.name, item.flavor_text.replace(/[\n\f]/g, " ")])),
+          source_id: SOURCE_ID,
+          source_url: pokemon.species.url,
+          collected_at: collectedAt,
+          confidence: 1,
+        },
+        p_form: {
+          id: formId,
+          species_id: speciesId,
+          slug: pokemon.name,
+          names: { en: pokemon.name },
+          variant: pokemon.name === species.name ? "standard" : "other",
+          is_default: pokemon.name === species.name,
+          availability: "unknown",
+          source_id: SOURCE_ID,
+          source_url: entry.url,
+          collected_at: collectedAt,
+          confidence: 1,
+        },
+        p_types: pokemon.types.map((item) => ({ type_id: item.type.name, slot: item.slot })),
+        p_snapshot: {
+          entity_type: "pokemon",
+          entity_id: String(pokemon.id),
+          version: collectedAt,
+          payload: pokemon,
+          source_id: SOURCE_ID,
+          source_url: entry.url,
+          captured_at: collectedAt,
+        },
+      });
+      if (recordError) throw new Error(`Atomic save failed for ${pokemon.name}: ${recordError.message}`);
 
       recordsWritten += 1;
     }
 
-    const finishedAt = new Date().toISOString();
-    await supabase.from("sync_runs").update({
-      finished_at: finishedAt, status: "succeeded",
-      records_read: recordsRead, records_written: recordsWritten,
-    }).eq("id", run.id);
-    await supabase.from("data_sources").update({
-      last_status: "updated", last_checked_at: finishedAt, last_success_at: finishedAt,
-    }).eq("id", SOURCE_ID);
+    const { error: finishError } = await supabase.rpc("finish_pokemon_catalog_sync", {
+      p_run_id: run.id,
+      p_status: "succeeded",
+      p_records_read: recordsRead,
+      p_records_written: recordsWritten,
+      p_error: null,
+    });
+    if (finishError) throw new Error(`Could not finalize successful sync: ${finishError.message}`);
 
-    return json({ status: "succeeded", offset, limit, totalAvailable: catalog.count,
+    return json({
+      status: "succeeded", offset, limit, totalAvailable: catalog.count,
       nextOffset: offset + catalog.results.length < catalog.count ? offset + catalog.results.length : null,
-      recordsRead, recordsWritten, runId: run.id });
+      recordsRead, recordsWritten, runId: run.id,
+    });
   } catch (error) {
-    const finishedAt = new Date().toISOString();
     const message = error instanceof Error ? error.message : "Unknown sync error";
-    await supabase.from("sync_runs").update({
-      finished_at: finishedAt, status: "failed",
-      records_read: recordsRead, records_written: recordsWritten, error: message.slice(0, 2000),
-    }).eq("id", run.id);
-    await supabase.from("data_sources").update({
-      last_status: "offline", last_checked_at: finishedAt,
-    }).eq("id", SOURCE_ID);
-    return json({ status: "failed", recordsRead, recordsWritten, error: message, runId: run.id }, 502);
+    const { error: finishError } = await supabase.rpc("finish_pokemon_catalog_sync", {
+      p_run_id: run.id,
+      p_status: "failed",
+      p_records_read: recordsRead,
+      p_records_written: recordsWritten,
+      p_error: message,
+    });
+
+    return json({
+      status: "failed",
+      recordsRead,
+      recordsWritten,
+      error: message,
+      finalizationError: finishError?.message ?? null,
+      runId: run.id,
+    }, 502);
   }
 });
