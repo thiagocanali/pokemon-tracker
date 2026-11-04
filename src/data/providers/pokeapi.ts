@@ -1,6 +1,6 @@
 import type { DataSource, Pokemon, PokemonProvider } from "./contracts";
 import { readPersistentCache, writePersistentCache } from "../cache/indexedDb";
-import { DEFAULT_CACHE_TTL_MS, isCacheFresh } from "../cache/freshness";
+import { isCacheFresh } from "../cache/freshness";
 
 const API_BASE = "https://pokeapi.co/api/v2";
 const responseCache = new Map<string, { value: unknown; cachedAt: string }>();
