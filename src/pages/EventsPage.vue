@@ -17,7 +17,7 @@ onMounted(async () => {
     events.value = result.events.data;
     seasons.value = result.seasons.data;
     if (result.events.status === "offline" || result.seasons.status === "offline") {
-      notice.value = "Exibindo a última cópia local disponível; a atualização remota falhou.";
+      notice.value = "Últimas informações conhecidas — não foi possível confirmar a programação atual.";
     }
   } catch {
     error.value = "Não foi possível consultar o calendário nem encontrar uma cópia local.";
@@ -34,14 +34,14 @@ onMounted(async () => {
       <RouterLink class="outline-button" to="/">Voltar ao dashboard</RouterLink>
     </section>
     <section class="event-hero surface-card">
-      <div class="hero-copy"><span class="live-pill">{{ loading ? "CONSULTANDO CALENDÁRIO" : upcomingEvents.length ? "AGENDA ATUALIZADA" : "SEM EVENTOS CADASTRADOS" }}</span><h2>Calendário Pokémon GO</h2><p>Datas e descrições vêm do catálogo conectado; nenhuma programação é presumida.</p></div>
+      <div class="hero-copy"><span class="live-pill">{{ loading ? "CONSULTANDO CALENDÁRIO" : notice ? "ÚLTIMO ESTADO CONHECIDO" : upcomingEvents.length ? "AGENDA ATUALIZADA" : "SEM EVENTOS CADASTRADOS" }}</span><h2>Calendário Pokémon GO</h2><p>Datas e descrições vêm do catálogo conectado; nenhuma programação é presumida.</p></div>
       <div class="hero-metric"><strong>{{ upcomingEvents.length }}</strong><span>eventos catalogados</span></div>
     </section>
     <p v-if="notice" class="empty-events">{{ notice }}</p>
     <p v-if="loading" class="empty-events">Carregando calendário...</p><p v-else-if="error" class="empty-events">{{ error }}</p>
     <div v-else class="events-layout">
       <section class="event-list"><div class="section-title"><div><p class="eyebrow">AGENDA</p><h2>Eventos</h2></div></div>
-        <article v-for="event in upcomingEvents" :key="event.id" class="event-card surface-card"><span class="event-marker"></span><div class="event-content"><div class="event-meta"><span>{{ dateRange(event.starts_at,event.ends_at) }}</span><span class="status">{{ new Date(event.starts_at)>now ? "Próximo" : "Em andamento" }}</span></div><h3>{{ eventName(event) }}</h3><p>{{ event.description?.["pt-BR"] || event.description?.en || "Descrição não fornecida pela fonte." }}</p><a :href="event.source_url" target="_blank" rel="noreferrer">Consultar fonte ↗</a></div></article>
+        <article v-for="event in upcomingEvents" :key="event.id" class="event-card surface-card"><span class="event-marker"></span><div class="event-content"><div class="event-meta"><span>{{ dateRange(event.starts_at,event.ends_at) }}</span><span class="status">{{ notice ? "Status não confirmado" : new Date(event.starts_at)>now ? "Próximo" : "Em andamento" }}</span></div><h3>{{ eventName(event) }}</h3><p>{{ event.description?.["pt-BR"] || event.description?.en || "Descrição não fornecida pela fonte." }}</p><a :href="event.source_url" target="_blank" rel="noreferrer">Consultar fonte ↗</a></div></article>
         <p v-if="!upcomingEvents.length" class="empty-events">Ainda não há eventos verificados cadastrados. A PokéAPI não fornece o calendário de Pokémon GO.</p>
       </section>
       <aside class="side-column"><div class="surface-card quick-card"><p class="eyebrow">TEMPORADAS</p><h2>{{ seasons.length ? "Temporadas catalogadas" : "Sem temporadas cadastradas" }}</h2><article v-for="season in seasons" :key="season.id" class="season-item"><strong>{{ seasonName(season) }}</strong><span>{{ dateRange(season.starts_at,season.ends_at) }}</span><a :href="season.source_url" target="_blank" rel="noreferrer">Fonte ↗</a></article><p v-if="!seasons.length">Providers de seasons ainda precisam ser conectados.</p></div></aside>
