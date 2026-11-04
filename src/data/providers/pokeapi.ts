@@ -1,4 +1,5 @@
 import type { DataSource, Pokemon, PokemonProvider } from "./contracts";
+import { readPersistentCache, writePersistentCache } from "../cache/indexedDb";
 
 const API_BASE = "https://pokeapi.co/api/v2";
 const responseCache = new Map<string, unknown>();
@@ -18,14 +19,20 @@ const pokemonTypes = [
 ];
 
 async function fetchJson<T>(path: string): Promise<T> {
-  const cached = responseCache.get(path);
-  if (cached) return cached as T;
+  if (responseCache.has(path)) return responseCache.get(path) as T;
+
+  const persistent = await readPersistentCache<T>(`pokeapi:${path}`);
+  if (persistent) {
+    responseCache.set(path, persistent.value);
+    return persistent.value;
+  }
 
   const response = await fetch(`${API_BASE}${path}`);
   if (!response.ok) throw new Error("Não foi possível consultar a Pokédex");
 
   const data = (await response.json()) as T;
   responseCache.set(path, data);
+  await writePersistentCache(`pokeapi:${path}`, data);
   return data;
 }
 

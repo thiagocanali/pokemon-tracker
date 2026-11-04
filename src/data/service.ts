@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import type { Pokemon } from "./providers/contracts";
+import { readPersistentCache, writePersistentCache } from "./cache/indexedDb";
 
 const apiBase = "https://pokeapi.co/api/v2";
 const memoryCache = new Map<string, PokemonResult>();
@@ -9,7 +10,7 @@ export type DataStatus = "fresh" | "cached" | "offline" | "unavailable";
 export type PokemonResult = {
   data: Pokemon;
   status: DataStatus;
-  source: "supabase" | "pokeapi";
+  source: "supabase" | "indexeddb" | "pokeapi";
 };
 
 function normalizeKey(value: string | number) {
@@ -77,7 +78,15 @@ export async function getCanonicalPokemon(value: string | number): Promise<Pokem
     // PokéAPI remains the availability fallback when Supabase is unreachable.
   }
 
+  const persistent = await readPersistentCache<Pokemon>(`pokemon:${key}`);
+  if (persistent) {
+    const result: PokemonResult = { data: persistent.value, status: "cached", source: "indexeddb" };
+    memoryCache.set(key, result);
+    return result;
+  }
+
   const data = await fromPokeApi(key);
+  await writePersistentCache(`pokemon:${key}`, data);
   const result: PokemonResult = { data, status: "fresh", source: "pokeapi" };
   memoryCache.set(key, result);
   return result;
