@@ -76,7 +76,7 @@ begin
   set finished_at=v_finished_at, status=p_status,
       records_read=p_records_read, records_written=p_records_written,
       error=case when p_status='failed' then left(p_error, 2000) else null end
-  where id=p_run_id and provider_id='pokeapi' and domain='pokemon_catalog';
+  where id=p_run_id and provider_id='pokeapi' and domain='pokemon_catalog' and status='running';
   if not found then raise exception 'Sync run % was not found', p_run_id; end if;
 
   update public.data_sources
