@@ -1,8 +1,9 @@
 import type { DataSource, Pokemon, PokemonProvider } from "./contracts";
 import { readPersistentCache, writePersistentCache } from "../cache/indexedDb";
+import { DEFAULT_CACHE_TTL_MS, isCacheFresh } from "../cache/freshness";
 
 const API_BASE = "https://pokeapi.co/api/v2";
-const responseCache = new Map<string, unknown>();
+const responseCache = new Map<string, { value: unknown; cachedAt: string }>();
 
 interface PokemonCatalog {
   count: number;
@@ -19,21 +20,34 @@ const pokemonTypes = [
 ];
 
 async function fetchJson<T>(path: string): Promise<T> {
-  if (responseCache.has(path)) return responseCache.get(path) as T;
+  const memory = responseCache.get(path);
+  if (memory && isCacheFresh(memory.cachedAt)) return memory.value as T;
 
   const persistent = await readPersistentCache<T>(`pokeapi:${path}`);
-  if (persistent) {
-    responseCache.set(path, persistent.value);
+  if (persistent && isCacheFresh(persistent.cachedAt)) {
+    responseCache.set(path, persistent);
     return persistent.value;
   }
 
-  const response = await fetch(`${API_BASE}${path}`);
-  if (!response.ok) throw new Error("Não foi possível consultar a Pokédex");
+  try {
+    const response = await fetch(`${API_BASE}${path}`);
+    if (!response.ok) throw new Error("Não foi possível consultar a Pokédex");
 
-  const data = (await response.json()) as T;
-  responseCache.set(path, data);
-  await writePersistentCache(`pokeapi:${path}`, data);
-  return data;
+    const data = (await response.json()) as T;
+    const entry = { value: data, cachedAt: new Date().toISOString() };
+    responseCache.set(path, entry);
+    await writePersistentCache(`pokeapi:${path}`, data);
+    return data;
+  } catch (error) {
+    const stale = persistent ?? (memory
+      ? { value: memory.value as T, cachedAt: memory.cachedAt }
+      : null);
+    if (stale) {
+      responseCache.set(path, stale);
+      return stale.value;
+    }
+    throw error;
+  }
 }
 
 const source: DataSource = {
