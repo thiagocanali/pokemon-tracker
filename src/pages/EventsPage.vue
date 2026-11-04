@@ -5,6 +5,7 @@ const events = ref<EventRow[]>([]);
 const seasons = ref<SeasonRow[]>([]);
 const loading = ref(true);
 const error = ref("");
+const notice = ref("");
 const now = new Date();
 const upcomingEvents = computed(() => events.value.filter((event) => new Date(event.ends_at) >= now));
 const eventName = (event: EventRow) => event.names?.["pt-BR"] || event.names?.en || event.slug;
@@ -16,7 +17,7 @@ onMounted(async () => {
     events.value = result.events.data;
     seasons.value = result.seasons.data;
     if (result.events.status === "offline" || result.seasons.status === "offline") {
-      error.value = "Exibindo a última cópia local disponível; a atualização remota falhou.";
+      notice.value = "Exibindo a última cópia local disponível; a atualização remota falhou.";
     }
   } catch {
     error.value = "Não foi possível consultar o calendário nem encontrar uma cópia local.";
@@ -36,6 +37,7 @@ onMounted(async () => {
       <div class="hero-copy"><span class="live-pill">{{ loading ? "CONSULTANDO CALENDÁRIO" : upcomingEvents.length ? "AGENDA ATUALIZADA" : "SEM EVENTOS CADASTRADOS" }}</span><h2>Calendário Pokémon GO</h2><p>Datas e descrições vêm do catálogo conectado; nenhuma programação é presumida.</p></div>
       <div class="hero-metric"><strong>{{ upcomingEvents.length }}</strong><span>eventos catalogados</span></div>
     </section>
+    <p v-if="notice" class="empty-events">{{ notice }}</p>
     <p v-if="loading" class="empty-events">Carregando calendário...</p><p v-else-if="error" class="empty-events">{{ error }}</p>
     <div v-else class="events-layout">
       <section class="event-list"><div class="section-title"><div><p class="eyebrow">AGENDA</p><h2>Eventos</h2></div></div>
