@@ -1,9 +1,10 @@
 import { supabase } from "../lib/supabase";
 import type { Pokemon } from "./providers/contracts";
 import { readPersistentCache, writePersistentCache } from "./cache/indexedDb";
+import { isCacheFresh } from "./cache/freshness";
 
 const apiBase = "https://pokeapi.co/api/v2";
-const memoryCache = new Map<string, PokemonResult>();
+const memoryCache = new Map<string, { result: PokemonResult; cachedAt: string }>();
 
 export type DataStatus = "fresh" | "cached" | "offline" | "unavailable";
 
@@ -65,33 +66,48 @@ async function fromPokeApi(key: string): Promise<Pokemon> {
 export async function getCanonicalPokemon(value: string | number): Promise<PokemonResult> {
   const key = normalizeKey(value);
   const cached = memoryCache.get(key);
-  if (cached) return { ...cached, status: "cached" };
+  if (cached && isCacheFresh(cached.cachedAt)) {
+    return { ...cached.result, status: "cached" };
+  }
 
   try {
     const canonical = await fromCanonicalStore(key);
     if (canonical) {
       const result: PokemonResult = { data: canonical, status: "fresh", source: "supabase" };
-      memoryCache.set(key, result);
+      memoryCache.set(key, { result, cachedAt: new Date().toISOString() });
       return result;
     }
   } catch {
-    // PokéAPI remains the availability fallback when Supabase is unreachable.
+    // PokéAPI and the persistent cache remain availability fallbacks.
   }
 
   const persistent = await readPersistentCache<Pokemon>(`pokemon:${key}`);
-  if (persistent) {
+  if (persistent && isCacheFresh(persistent.cachedAt)) {
     const result: PokemonResult = { data: persistent.value, status: "cached", source: "indexeddb" };
-    memoryCache.set(key, result);
+    memoryCache.set(key, { result, cachedAt: persistent.cachedAt });
     return result;
   }
 
-  const data = await fromPokeApi(key);
-  await writePersistentCache(`pokemon:${key}`, data);
-  const result: PokemonResult = { data, status: "fresh", source: "pokeapi" };
-  memoryCache.set(key, result);
-  return result;
+  try {
+    const data = await fromPokeApi(key);
+    await writePersistentCache(`pokemon:${key}`, data);
+    const result: PokemonResult = { data, status: "fresh", source: "pokeapi" };
+    memoryCache.set(key, { result, cachedAt: new Date().toISOString() });
+    return result;
+  } catch (error) {
+    const stale = persistent
+      ? { value: persistent.value, cachedAt: persistent.cachedAt, source: "indexeddb" as const }
+      : cached
+        ? { value: cached.result.data, cachedAt: cached.cachedAt, source: cached.result.source }
+        : null;
+    if (stale) {
+      const result: PokemonResult = { data: stale.value, status: "offline", source: stale.source };
+      memoryCache.set(key, { result, cachedAt: stale.cachedAt });
+      return result;
+    }
+    throw error;
+  }
 }
-
 export function clearCanonicalCache() {
   memoryCache.clear();
 }
