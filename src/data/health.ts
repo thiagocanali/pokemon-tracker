@@ -9,7 +9,8 @@ export type DataSourceHealth = {
   lastStatus: "unknown" | "updated" | "stale" | "offline" | "unavailable";
   lastCheckedAt: string | null;
   lastSuccessAt: string | null;
-  recordCount: number;
+  recordCount: number | null;
+  recordCountStatus: "available" | "not-tracked" | "error";
 };
 
 export function formatSourceDate(value: string | null) {
@@ -19,7 +20,7 @@ export function formatSourceDate(value: string | null) {
 
 export async function getDataSourceHealth(): Promise<DataSourceHealth[]> {
   const client = supabase;
-  if (!client) return [];
+  if (!client) throw new Error("Supabase indisponível para consultar a saúde das fontes.");
 
   const { data, error } = await client
     .from("data_sources")
@@ -30,16 +31,24 @@ export async function getDataSourceHealth(): Promise<DataSourceHealth[]> {
   if (error) throw error;
 
   const counts = await Promise.all((data ?? []).map(async (source) => {
-    if (source.id !== "pokeapi") return [source.id, 0] as const;
+    if (source.id !== "pokeapi") {
+      return [source.id, { value: null, status: "not-tracked" }] as const;
+    }
+
     const { count, error: countError } = await client
       .from("pokemon_species")
       .select("id", { count: "exact", head: true })
       .eq("source_id", source.id);
-    if (countError) return [source.id, 0] as const;
-    return [source.id, count ?? 0] as const;
+
+    if (countError) {
+      return [source.id, { value: null, status: "error" }] as const;
+    }
+
+    return [source.id, { value: count ?? 0, status: "available" }] as const;
   }));
 
   const recordCounts = new Map(counts);
+
   return (data ?? []).map((source) => ({
     id: source.id,
     name: source.name,
@@ -49,6 +58,13 @@ export async function getDataSourceHealth(): Promise<DataSourceHealth[]> {
     lastStatus: source.last_status,
     lastCheckedAt: source.last_checked_at,
     lastSuccessAt: source.last_success_at,
-    recordCount: recordCounts.get(source.id) ?? 0,
+    recordCount: recordCounts.get(source.id)?.value ?? null,
+    recordCountStatus: recordCounts.get(source.id)?.status ?? "not-tracked",
   }));
+}
+
+export function formatSourceRecordCount(source: DataSourceHealth) {
+  if (source.recordCountStatus === "not-tracked") return "contagem não monitorada";
+  if (source.recordCountStatus === "error") return "falha ao consultar contagem";
+  return `${source.recordCount ?? 0} registros`;
 }
