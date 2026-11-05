@@ -1,6 +1,7 @@
 import type { DataSource, Pokemon, PokemonProvider } from "./contracts";
 import { readPersistentCache, writePersistentCache } from "../cache/indexedDb";
 import { isCacheFresh } from "../cache/freshness";
+import { selectNewestStalePokemonCache } from "../cache/stalePokemonFallback";
 
 const API_BASE = "https://pokeapi.co/api/v2";
 const responseCache = new Map<string, { value: unknown; cachedAt: string }>();
@@ -39,11 +40,16 @@ async function fetchJson<T>(path: string): Promise<T> {
     await writePersistentCache(`pokeapi:${path}`, data);
     return data;
   } catch (error) {
-    const stale = persistent ?? (memory
-      ? { value: memory.value as T, cachedAt: memory.cachedAt }
-      : null);
+    const stale = selectNewestStalePokemonCache([
+      persistent
+        ? { value: persistent.value, cachedAt: persistent.cachedAt, source: "indexeddb" as const }
+        : null,
+      memory
+        ? { value: memory.value as T, cachedAt: memory.cachedAt, source: "pokeapi" as const }
+        : null,
+    ]);
     if (stale) {
-      responseCache.set(path, stale);
+      responseCache.set(path, { value: stale.value, cachedAt: stale.cachedAt });
       return stale.value;
     }
     throw error;
