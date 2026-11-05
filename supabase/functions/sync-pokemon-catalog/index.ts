@@ -141,6 +141,7 @@ Deno.serve(async (request) => {
           source_url: pokemon.species.url,
           collected_at: collectedAt,
           confidence: 1,
+          data_version: "pokeapi-v2",
         },
         p_form: {
           id: formId,
@@ -154,6 +155,7 @@ Deno.serve(async (request) => {
           source_url: entry.url,
           collected_at: collectedAt,
           confidence: 1,
+          data_version: "pokeapi-v2",
         },
         p_types: pokemon.types.map((item) => ({ type_id: item.type.name, slot: item.slot })),
         p_snapshot: {
@@ -164,6 +166,7 @@ Deno.serve(async (request) => {
           source_id: SOURCE_ID,
           source_url: entry.url,
           captured_at: collectedAt,
+          data_version: "pokeapi-v2",
         },
       }));
       if (recordError) throw new Error(`Atomic save failed for ${pokemon.name}: ${recordError.message}`);
