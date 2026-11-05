@@ -30,9 +30,9 @@ export async function getDataSourceHealth(): Promise<DataSourceHealth[]> {
 
   if (error) throw error;
 
-  const counts = await Promise.all((data ?? []).map(async (source) => {
+  const counts: Array<[string, { value: number | null; status: DataSourceHealth["recordCountStatus"] }]> = await Promise.all((data ?? []).map(async (source) => {
     if (source.id !== "pokeapi") {
-      return [source.id, { value: null, status: "not-tracked" }] as const;
+      return [source.id, { value: null, status: "not-tracked" }];
     }
 
     const { count, error: countError } = await client
@@ -41,10 +41,10 @@ export async function getDataSourceHealth(): Promise<DataSourceHealth[]> {
       .eq("source_id", source.id);
 
     if (countError) {
-      return [source.id, { value: null, status: "error" }] as const;
+      return [source.id, { value: null, status: "error" }];
     }
 
-    return [source.id, { value: count ?? 0, status: "available" }] as const;
+    return [source.id, { value: count ?? 0, status: "available" }];
   }));
 
   const recordCounts = new Map(counts);
