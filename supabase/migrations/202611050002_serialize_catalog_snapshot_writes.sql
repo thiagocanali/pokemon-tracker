@@ -22,7 +22,8 @@ begin
     or nullif(p_snapshot->>'captured_at', '') is null
     or nullif(p_species->>'id', '') is null
     or nullif(p_form->>'id', '') is null
-    or nullif(p_form->>'species_id', '') is null then
+    or nullif(p_form->>'species_id', '') is null
+    or p_form->>'species_id' is distinct from p_species->>'id' then
     raise exception 'Invalid Pokémon catalog record payload';
   end if;
 
@@ -32,9 +33,17 @@ begin
     raise exception 'Invalid Pokémon catalog captured_at timestamp';
   end;
 
-  -- Transaction-scoped lock: concurrent syncs for different Pokémon remain parallel.
+  -- Lock the shared species row first, then the individual snapshot entity.
+  -- Different species remain concurrent; forms of one species cannot race while
+  -- updating the shared species row or its single-default-form constraint.
   perform pg_advisory_xact_lock(
-    hashtextextended(p_snapshot->>'entity_type' || ':' || p_snapshot->>'entity_id', 0)
+    hashtextextended('species:' || (p_species->>'id'), 0)
+  );
+  perform pg_advisory_xact_lock(
+    hashtextextended(
+      'snapshot:' || (p_snapshot->>'entity_type') || ':' || (p_snapshot->>'entity_id'),
+      0
+    )
   );
 
   select snapshot.payload, snapshot.captured_at
