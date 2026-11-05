@@ -12,7 +12,7 @@ export type BattleRanking = {
   source_url: string;
   collected_at: string;
   data_version: string | null;
-  data_sources?: { name: string } | null;
+  data_sources?: SourceNameRelation;
   battle_ranking_moves?: {
     slot: number;
     moves: { names: Record<string, string>; slug: string } | null;
