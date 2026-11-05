@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { isCacheFresh } from "./cache/freshness";
 import { readPersistentCache, writePersistentCache } from "./cache/indexedDb";
+import type { SourceNameRelation } from "./provenance";
 
 export type BattleRanking = {
   id: number;
@@ -8,9 +9,11 @@ export type BattleRanking = {
   league: string | null;
   rank: number;
   rating: number | null;
+  source_id: string;
   source_url: string;
   collected_at: string;
-  data_sources?: { name: string } | null;
+  data_version: string | null;
+  data_sources?: SourceNameRelation;
   battle_ranking_moves?: {
     slot: number;
     moves: { names: Record<string, string>; slug: string } | null;
@@ -45,7 +48,7 @@ export async function getBattleRankings(
       const { data, error } = await supabase
         .from("battle_rankings")
         .select(
-          "id,mode,league,rank,rating,source_url,collected_at,data_sources(name),battle_ranking_moves(slot,moves(names,slug)),pokemon_forms!inner(species_id)",
+          "id,mode,league,rank,rating,source_id,source_url,collected_at,data_version,data_sources(name),battle_ranking_moves(slot,moves(names,slug)),pokemon_forms!inner(species_id)",
         )
         .eq("pokemon_forms.species_id", `species-${pokemonId}`)
         .eq("mode", mode)

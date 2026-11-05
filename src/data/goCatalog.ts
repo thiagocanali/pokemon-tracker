@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { isCacheFresh } from "./cache/freshness";
 import { readPersistentCache, writePersistentCache } from "./cache/indexedDb";
+import type { SourceNameRelation } from "./provenance";
 
 export type EventRow = {
   id: string;
@@ -10,7 +11,12 @@ export type EventRow = {
   starts_at: string;
   ends_at: string;
   timezone: string | null;
+  source_id: string;
   source_url: string;
+  collected_at: string;
+  source_updated_at: string | null;
+  data_version: string | null;
+  data_sources?: SourceNameRelation;
 };
 
 export type SeasonRow = {
@@ -18,7 +24,12 @@ export type SeasonRow = {
   names: Record<string, string>;
   starts_at: string;
   ends_at: string;
+  source_id: string;
   source_url: string;
+  collected_at: string;
+  source_updated_at: string | null;
+  data_version: string | null;
+  data_sources?: SourceNameRelation;
 };
 
 export type RaidBoss = {
@@ -34,7 +45,12 @@ export type RaidRotation = {
   id: string;
   starts_at: string;
   ends_at: string;
+  source_id: string;
   source_url: string;
+  collected_at: string;
+  source_updated_at: string | null;
+  data_version: string | null;
+  data_sources?: SourceNameRelation;
   raid_rotation_bosses: RaidBoss[];
 };
 
@@ -97,14 +113,14 @@ export function getEventsAndSeasons(now = new Date()): Promise<{
   return Promise.all([
     loadWithPersistentFallback(EVENT_CACHE_KEY, EVENT_TTL_MS, async () => {
       const { data, error } = await client.from("events")
-        .select("id,slug,names,description,starts_at,ends_at,timezone,source_url")
+        .select("id,slug,names,description,starts_at,ends_at,timezone,source_id,source_url,collected_at,source_updated_at,data_version,data_sources(name)")
         .gte("ends_at", cutoff).order("starts_at").limit(30);
       if (error) throw error;
       return (data ?? []) as EventRow[];
     }),
     loadWithPersistentFallback(EVENT_CACHE_KEY + ":seasons", EVENT_TTL_MS, async () => {
       const { data, error } = await client.from("seasons")
-        .select("id,names,starts_at,ends_at,source_url")
+        .select("id,names,starts_at,ends_at,source_id,source_url,collected_at,source_updated_at,data_version,data_sources(name)")
         .gte("ends_at", cutoff).order("starts_at").limit(10);
       if (error) throw error;
       return (data ?? []) as SeasonRow[];
@@ -124,7 +140,7 @@ export function getRaidRotations(now = new Date()): Promise<GoCatalogResult<Raid
   const cutoff = now.toISOString();
   return loadWithPersistentFallback(RAID_CACHE_KEY, RAID_TTL_MS, async () => {
     const { data, error } = await client.from("raid_rotations")
-      .select("id,starts_at,ends_at,source_url,raid_rotation_bosses(tier,pokemon_forms(slug,names,pokemon_species(names,dex_number)))")
+      .select("id,starts_at,ends_at,source_id,source_url,collected_at,source_updated_at,data_version,data_sources(name),raid_rotation_bosses(tier,pokemon_forms(slug,names,pokemon_species(names,dex_number)))")
       .gte("ends_at", cutoff).order("starts_at").limit(20);
     if (error) throw error;
     return (data ?? []) as unknown as RaidRotation[];
