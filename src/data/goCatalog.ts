@@ -15,7 +15,7 @@ export type EventRow = {
   collected_at: string;
   source_updated_at: string | null;
   data_version: string | null;
-  data_sources?: { name: string } | null;
+  data_sources?: SourceNameRelation;
 };
 
 export type SeasonRow = {
