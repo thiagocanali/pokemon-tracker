@@ -7,6 +7,7 @@ const moves = ref<MoveRow[]>([]);
 const sources = ref<DataSourceHealth[]>([]);
 const loading = ref(true);
 const error = ref("");
+const cacheNotice = ref("");
 const query = ref("");
 const category = ref("all");
 const filteredMoves = computed(() => moves.value.filter((move) => {
@@ -26,7 +27,7 @@ async function loadData() {
     moves.value = moveResult.data;
     sources.value = sourceResult;
     if (moveResult.status === "offline") {
-      error.value = `Exibindo cache local offline (última atualização: ${new Date(moveResult.cachedAt).toLocaleString("pt-BR")}).`;
+      cacheNotice.value = `Exibindo cache local offline (última atualização: ${new Date(moveResult.cachedAt).toLocaleString("pt-BR")}).`;
     }
   } catch {
     error.value = "Não foi possível consultar o catálogo de moves. Ainda não há cache local disponível.";
@@ -40,7 +41,7 @@ onMounted(loadData);
     <section class="page-intro"><div><p class="eyebrow">DATABASE / MOVES</p><h1>Moves de Pokémon GO</h1><p>Dano, energia e duração são exibidos somente quando registrados por uma fonte rastreável.</p></div><div class="result-count"><strong>{{ moves.length }}</strong><span>moves catalogados</span></div></section>
     <section class="tool-panel"><label class="search-field"><span>⌕</span><input v-model="query" type="search" placeholder="Buscar move ou tipo" aria-label="Buscar move" /></label><select v-model="category" aria-label="Filtrar categoria"><option value="all">Todas as categorias</option><option value="fast">Rápidos</option><option value="charged">Carregados</option></select></section>
     <section class="source-panel" aria-labelledby="sources-title"><div><p class="eyebrow">PROVENIÊNCIA</p><h2 id="sources-title">Fontes conectadas</h2></div><div v-if="sources.length" class="source-list"><article v-for="source in sources" :key="source.id" class="source-item"><div><strong>{{ source.name }}</strong><span>{{ source.scope }}</span></div><span class="source-status" :class="source.lastStatus">{{ source.recordCount }} registros · {{ source.lastStatus === "unknown" ? "sem sincronização" : source.lastStatus }}</span><p>Última verificação: {{ formatSourceDate(source.lastCheckedAt) }}</p><p v-if="source.limitations">{{ source.limitations }}</p></article></div><p v-else class="source-empty">Nenhuma fonte catalogada.</p></section>
-    <section class="moves-table" aria-label="Catálogo de moves">
+    <p v-if="cacheNotice" class="empty-state" role="status">{{ cacheNotice }}</p>\n    <section class="moves-table" aria-label="Catálogo de moves">
       <p v-if="loading" class="empty-state">Carregando catálogo...</p>
       <p v-else-if="error" class="empty-state">{{ error }}</p>
       <p v-else-if="!filteredMoves.length" class="empty-state">{{ moves.length ? "Nenhum move corresponde ao filtro." : "Ainda não há moves de Pokémon GO catalogados. A PokéAPI não fornece os dados de batalha deste jogo." }}</p>
