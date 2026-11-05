@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { getBattleRankings, type BattleRanking } from "../data/rankings";
-import { formatCollectedAt, formatDataVersion } from "../data/provenance";
+import { formatCollectedAt, formatDataVersion, formatSourceName } from "../data/provenance";
 import { usePokemonStore, type Pokemon } from "../store/pokemon";
 
 const store=usePokemonStore();
@@ -72,7 +72,7 @@ onBeforeUnmount(()=>{window.clearTimeout(searchTimer);searchRequestId++;rankingR
       <div class="ranking-panel">
         <div class="ranking-heading"><div><span class="eyebrow">DADOS DE BATALHA</span><h2>Rankings e movesets</h2></div><div class="mode-switch"><button :class="{active:mode==='pve'}" @click="mode='pve'">PvE</button><button :class="{active:mode==='pvp'}" @click="mode='pvp'">PvP</button></div></div>
         <p v-if="rankingLoading" class="empty-state">Consultando rankings...</p><p v-else-if="rankingError" class="empty-state">{{rankingError}}</p>
-        <p v-if="rankingNotice" class="cache-notice" role="status">{{rankingNotice}}</p><div v-if="rankings.length" class="ranking-list"><article v-for="ranking in rankings" :key="ranking.id" class="ranking-row"><div><strong>#{{ranking.rank}} {{ranking.league||"PvE"}}</strong><span v-if="ranking.rating!==null">Rating {{ranking.rating}}</span><div class="move-tags"><span v-for="move in (ranking.battle_ranking_moves||[]).sort((a,b)=>a.slot-b.slot)" :key="move.slot">{{move.moves?moveName(move.moves):"Move não informado"}}</span></div></div><div class="ranking-source"><a :href="ranking.source_url" target="_blank" rel="noreferrer">{{ranking.data_sources?.name||"Fonte"}} ↗</a><small>Coletado: {{formatCollectedAt(ranking.collected_at)}}</small><small>{{formatDataVersion(ranking.data_version)}}</small></div></article></div>
+        <p v-if="rankingNotice" class="cache-notice" role="status">{{rankingNotice}}</p><div v-if="rankings.length" class="ranking-list"><article v-for="ranking in rankings" :key="ranking.id" class="ranking-row"><div><strong>#{{ranking.rank}} {{ranking.league||"PvE"}}</strong><span v-if="ranking.rating!==null">Rating {{ranking.rating}}</span><div class="move-tags"><span v-for="move in (ranking.battle_ranking_moves||[]).sort((a,b)=>a.slot-b.slot)" :key="move.slot">{{move.moves?moveName(move.moves):"Move não informado"}}</span></div></div><div class="ranking-source"><a :href="ranking.source_url" target="_blank" rel="noreferrer">{{formatSourceName(ranking.data_sources)}} ↗</a><small>Coletado: {{formatCollectedAt(ranking.collected_at)}}</small><small>{{formatDataVersion(ranking.data_version)}}</small></div></article></div>
         <p v-else class="empty-state">Ainda não há rankings {{mode.toUpperCase()}} verificados para este Pokémon. Nenhum counter é inventado ou calculado com dados de jogos principais.</p>
       </div>
     </section>
