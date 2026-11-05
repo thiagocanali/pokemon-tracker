@@ -2,6 +2,7 @@ import { supabase } from "../lib/supabase";
 import type { Pokemon } from "./providers/contracts";
 import { readPersistentCache, writePersistentCache } from "./cache/indexedDb";
 import { isCacheFresh } from "./cache/freshness";
+import { selectNewestStalePokemonCache } from "./cache/stalePokemonFallback";
 
 const apiBase = "https://pokeapi.co/api/v2";
 const memoryCache = new Map<string, { result: PokemonResult; cachedAt: string }>();
@@ -115,13 +116,17 @@ export async function getCanonicalPokemon(value: string | number): Promise<Pokem
     memoryCache.set(key, { result, cachedAt: new Date().toISOString() });
     return result;
   } catch (error) {
-    const stale = persistent
-      ? { value: persistent.value, cachedAt: persistent.cachedAt, source: "indexeddb" as const }
-      : canonical
+    const stale = selectNewestStalePokemonCache([
+      persistent
+        ? { value: persistent.value, cachedAt: persistent.cachedAt, source: "indexeddb" as const }
+        : null,
+      canonical
         ? { value: canonical.payload, cachedAt: canonical.capturedAt, source: "supabase" as const }
-        : cached
-          ? { value: cached.result.data, cachedAt: cached.cachedAt, source: cached.result.source }
-          : null;
+        : null,
+      cached
+        ? { value: cached.result.data, cachedAt: cached.cachedAt, source: cached.result.source }
+        : null,
+    ]);
 
     if (stale) {
       const result: PokemonResult = {
