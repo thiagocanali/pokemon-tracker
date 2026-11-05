@@ -9,7 +9,8 @@ declare
   v_field record;
 begin
   if jsonb_typeof(p_species) <> 'object' or jsonb_typeof(p_form) <> 'object'
-    or jsonb_typeof(p_types) <> 'array' or jsonb_typeof(p_snapshot) <> 'object' then
+    or jsonb_typeof(p_types) <> 'array' or jsonb_typeof(p_snapshot) <> 'object'
+    or jsonb_typeof(p_snapshot->'payload') <> 'object' then
     raise exception 'Invalid Pokémon catalog record payload';
   end if;
 
@@ -51,41 +52,45 @@ begin
         (p_snapshot->>'captured_at')::timestamptz,
         p_snapshot->>'source_id',
         p_snapshot->>'source_url',
-        p_snapshot->>'version'
+        p_snapshot->>'data_version'
       );
     end loop;
   end if;
 
   insert into public.pokemon_species (
     id, dex_number, slug, names, generation, category, description,
-    source_id, source_url, collected_at, confidence
+    source_id, source_url, collected_at, source_updated_at, data_version, confidence
   ) values (
     p_species->>'id', (p_species->>'dex_number')::integer, p_species->>'slug',
     p_species->'names', nullif(p_species->>'generation', '')::smallint,
     p_species->'category', p_species->'description', p_species->>'source_id',
     p_species->>'source_url', (p_species->>'collected_at')::timestamptz,
+    nullif(p_species->>'source_updated_at', '')::timestamptz, p_species->>'data_version',
     nullif(p_species->>'confidence', '')::numeric
   )
   on conflict (id) do update set
     dex_number=excluded.dex_number, slug=excluded.slug, names=excluded.names,
     generation=excluded.generation, category=excluded.category, description=excluded.description,
     source_id=excluded.source_id, source_url=excluded.source_url,
-    collected_at=excluded.collected_at, confidence=excluded.confidence, updated_at=now();
+    collected_at=excluded.collected_at, source_updated_at=excluded.source_updated_at,
+    data_version=excluded.data_version, confidence=excluded.confidence, updated_at=now();
 
   insert into public.pokemon_forms (
     id, species_id, slug, names, variant, is_default, availability,
-    source_id, source_url, collected_at, confidence
+    source_id, source_url, collected_at, source_updated_at, data_version, confidence
   ) values (
     p_form->>'id', p_form->>'species_id', p_form->>'slug', p_form->'names',
     p_form->>'variant', (p_form->>'is_default')::boolean, p_form->>'availability',
     p_form->>'source_id', p_form->>'source_url', (p_form->>'collected_at')::timestamptz,
+    nullif(p_form->>'source_updated_at', '')::timestamptz, p_form->>'data_version',
     nullif(p_form->>'confidence', '')::numeric
   )
   on conflict (id) do update set
     species_id=excluded.species_id, slug=excluded.slug, names=excluded.names,
     variant=excluded.variant, is_default=excluded.is_default, availability=excluded.availability,
     source_id=excluded.source_id, source_url=excluded.source_url,
-    collected_at=excluded.collected_at, confidence=excluded.confidence, updated_at=now();
+    collected_at=excluded.collected_at, source_updated_at=excluded.source_updated_at,
+    data_version=excluded.data_version, confidence=excluded.confidence, updated_at=now();
 
   delete from public.pokemon_form_types where form_id = p_form->>'id';
   insert into public.pokemon_form_types (form_id, type_id, slot)
