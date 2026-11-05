@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { isCacheFresh } from "./cache/freshness";
 import { readPersistentCache, writePersistentCache } from "./cache/indexedDb";
+import type { SourceNameRelation } from "./provenance";
 
 export type EventRow = {
   id: string;
@@ -28,7 +29,7 @@ export type SeasonRow = {
   collected_at: string;
   source_updated_at: string | null;
   data_version: string | null;
-  data_sources?: { name: string } | null;
+  data_sources?: SourceNameRelation;
 };
 
 export type RaidBoss = {
@@ -49,7 +50,7 @@ export type RaidRotation = {
   collected_at: string;
   source_updated_at: string | null;
   data_version: string | null;
-  data_sources?: { name: string } | null;
+  data_sources?: SourceNameRelation;
   raid_rotation_bosses: RaidBoss[];
 };
 
