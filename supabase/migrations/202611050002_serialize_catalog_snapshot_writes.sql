@@ -10,8 +10,10 @@ declare
   v_previous_payload jsonb;
   v_previous_captured_at timestamptz;
   v_previous_species_collected_at timestamptz;
+  v_previous_form_collected_at timestamptz;
   v_captured_at timestamptz;
   v_species_collected_at timestamptz;
+  v_form_collected_at timestamptz;
   v_field record;
 begin
   if jsonb_typeof(p_species) is distinct from 'object'
@@ -22,16 +24,28 @@ begin
     or nullif(p_snapshot->>'entity_type', '') is null
     or nullif(p_snapshot->>'entity_id', '') is null
     or nullif(p_snapshot->>'captured_at', '') is null
+    or nullif(p_snapshot->>'version', '') is null
+    or nullif(p_snapshot->>'source_id', '') is null
+    or nullif(p_snapshot->>'source_url', '') is null
     or nullif(p_species->>'id', '') is null
+    or nullif(p_species->>'collected_at', '') is null
+    or nullif(p_species->>'source_id', '') is null
+    or nullif(p_species->>'source_url', '') is null
     or nullif(p_form->>'id', '') is null
     or nullif(p_form->>'species_id', '') is null
-    or p_form->>'species_id' is distinct from p_species->>'id' then
+    or nullif(p_form->>'collected_at', '') is null
+    or nullif(p_form->>'source_id', '') is null
+    or nullif(p_form->>'source_url', '') is null
+    or p_form->>'species_id' is distinct from p_species->>'id'
+    or p_species->>'source_id' is distinct from p_form->>'source_id'
+    or p_species->>'source_id' is distinct from p_snapshot->>'source_id' then
     raise exception 'Invalid Pokémon catalog record payload';
   end if;
 
   begin
     v_captured_at := (p_snapshot->>'captured_at')::timestamptz;
     v_species_collected_at := (p_species->>'collected_at')::timestamptz;
+    v_form_collected_at := (p_form->>'collected_at')::timestamptz;
   exception when others then
     raise exception 'Invalid Pokémon catalog timestamp';
   end;
@@ -57,6 +71,17 @@ begin
   if v_previous_species_collected_at is not null
     and v_species_collected_at < v_previous_species_collected_at then
     raise exception 'Stale Pokémon species data rejected for %', p_species->>'id'
+      using errcode = '22023';
+  end if;
+
+  select form.collected_at
+    into v_previous_form_collected_at
+  from public.pokemon_forms as form
+  where form.id = p_form->>'id';
+
+  if v_previous_form_collected_at is not null
+    and v_form_collected_at < v_previous_form_collected_at then
+    raise exception 'Stale Pokémon form data rejected for %', p_form->>'id'
       using errcode = '22023';
   end if;
 
