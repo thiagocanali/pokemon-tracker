@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { getMovesCatalog, type MoveRow } from "../data/moves";
-import { formatSourceDate, formatSourceRecordCount, getDataSourceHealth, type DataSourceHealth } from "../data/health";
+import { formatSourceDate, formatSourceRecordCount, formatSourceStatus, getDataSourceHealth, type DataSourceHealth } from "../data/health";
 import { formatCollectedAt, formatSourceUpdatedAt, formatDataVersion, formatSourceName } from "../data/provenance";
 
 const moves = ref<MoveRow[]>([]);
@@ -49,7 +49,7 @@ onMounted(loadData);
   <main class="moves-page page-shell">
     <section class="page-intro"><div><p class="eyebrow">DATABASE / MOVES</p><h1>Moves de Pokémon GO</h1><p>Dano, energia e duração são exibidos somente quando registrados por uma fonte rastreável.</p></div><div class="result-count"><strong>{{ moves.length }}</strong><span>moves catalogados</span></div></section>
     <section class="tool-panel"><label class="search-field"><span>⌕</span><input v-model="query" type="search" placeholder="Buscar move ou tipo" aria-label="Buscar move" /></label><select v-model="category" aria-label="Filtrar categoria"><option value="all">Todas as categorias</option><option value="fast">Rápidos</option><option value="charged">Carregados</option></select></section>
-    <section class="source-panel" aria-labelledby="sources-title"><div><p class="eyebrow">PROVENIÊNCIA</p><h2 id="sources-title">Fontes conectadas</h2></div><div v-if="sources.length" class="source-list"><article v-for="source in sources" :key="source.id" class="source-item"><div><strong>{{ source.name }}</strong><span>{{ source.scope }}</span></div><span class="source-status" :class="source.lastStatus">{{ formatSourceRecordCount(source) }} · {{ source.lastStatus === "unknown" ? "sem sincronização" : source.lastStatus }}</span><p>Última verificação: {{ formatSourceDate(source.lastCheckedAt) }}</p><p v-if="source.limitations">{{ source.limitations }}</p></article></div><p v-else class="source-empty">{{ sourceHealthError || "Nenhuma fonte cadastrada está habilitada." }}</p></section>
+    <section class="source-panel" aria-labelledby="sources-title"><div><p class="eyebrow">PROVENIÊNCIA</p><h2 id="sources-title">Fontes conectadas</h2></div><div v-if="sources.length" class="source-list"><article v-for="source in sources" :key="source.id" class="source-item"><div><strong>{{ source.name }}</strong><span>{{ source.scope }}</span></div><span class="source-status" :class="source.lastStatus">{{ formatSourceRecordCount(source) }} · {{ formatSourceStatus(source.lastStatus) }}</span><p>Última tentativa: {{ formatSourceDate(source.lastCheckedAt) }}</p><p>Último sucesso: {{ formatSourceDate(source.lastSuccessAt) }}</p><p v-if="source.limitations">{{ source.limitations }}</p></article></div><p v-else class="source-empty">{{ sourceHealthError || "Nenhuma fonte cadastrada está habilitada." }}</p></section>
     <p v-if="cacheNotice" class="empty-state" role="status">{{ cacheNotice }}</p>\n    <section class="moves-table" aria-label="Catálogo de moves">
       <p v-if="loading" class="empty-state">Carregando catálogo...</p>
       <p v-else-if="error" class="empty-state">{{ error }}</p>
