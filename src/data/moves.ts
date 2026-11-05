@@ -20,7 +20,7 @@ export type MoveRow = {
   source_updated_at: string | null;
   data_version: string | null;
   pokemon_types?: { names: Record<string, string> } | null;
-  data_sources?: { name: string } | null;
+  data_sources?: SourceNameRelation;
 };
 
 export type MovesCatalogResult = {
