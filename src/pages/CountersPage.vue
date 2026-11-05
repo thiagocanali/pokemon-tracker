@@ -1,21 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
-import { supabase } from "../lib/supabase";
+import { getBattleRankings, type BattleRanking } from "../data/rankings";
 import { usePokemonStore, type Pokemon } from "../store/pokemon";
 
-type Ranking = {
-  id:number; mode:string; league:string|null; rank:number; rating:number|null; source_url:string; collected_at:string;
-  data_sources?:{name:string}|null;
-  battle_ranking_moves?:{slot:number;moves:{names:Record<string,string>;slug:string}|null}[];
-};
 const store=usePokemonStore();
 const query=ref("");
 const remoteTarget=ref<Pokemon|null>(null);
 const searchLoading=ref(false);
 const rankingLoading=ref(false);
 const rankingError=ref("");
-const rankings=ref<Ranking[]>([]);
+const rankingNotice=ref("");
+const rankingCachedAt=ref("");
+const rankings=ref<BattleRanking[]>([]);
 const mode=ref<"pve"|"pvp">("pve");
 const dynamicTarget=computed(()=>{
   if(!remoteTarget.value)return null;
@@ -44,17 +41,23 @@ watch(query,(value)=>{
 watch([()=>remoteTarget.value?.id,mode],async([pokemonId])=>{
   const requestId=++rankingRequestId;
   rankings.value=[];rankingError.value="";
-  if(!pokemonId||!supabase)return;
+  if(!pokemonId)return;
   rankingLoading.value=true;
   try{
-    const {data,error}=await supabase.from("battle_rankings")
-      .select("id,mode,league,rank,rating,source_url,collected_at,data_sources(name),battle_ranking_moves(slot,moves(names,slug)),pokemon_forms!inner(species_id)")
-      .eq("pokemon_forms.species_id",`species-${pokemonId}`)
-      .eq("mode",mode.value).order("rank").limit(10);
-    if(error)throw error;
-    if(requestId===rankingRequestId)rankings.value=(data??[]) as unknown as Ranking[];
-  }catch{if(requestId===rankingRequestId)rankingError.value="Não foi possível consultar os rankings cadastrados.";}
-  finally{if(requestId===rankingRequestId)rankingLoading.value=false;}
+    const result=await getBattleRankings(pokemonId,mode.value);
+    if(requestId===rankingRequestId){
+      rankings.value=result.data;
+      rankingCachedAt.value=result.cachedAt;
+      rankingNotice.value=result.status==="offline"
+        ? `Exibindo cache local de ${new Date(result.cachedAt).toLocaleString("pt-BR")}; os dados podem estar desatualizados.`
+        : "";
+    }
+  }catch{
+    if(requestId===rankingRequestId){
+      rankingError.value="Não foi possível consultar os rankings cadastrados.";
+      rankingNotice.value="";
+    }
+  }finally{if(requestId===rankingRequestId)rankingLoading.value=false;}
 });
 onBeforeUnmount(()=>{window.clearTimeout(searchTimer);searchRequestId++;rankingRequestId++;});
 </script>
@@ -68,7 +71,7 @@ onBeforeUnmount(()=>{window.clearTimeout(searchTimer);searchRequestId++;rankingR
       <div class="ranking-panel">
         <div class="ranking-heading"><div><span class="eyebrow">DADOS DE BATALHA</span><h2>Rankings e movesets</h2></div><div class="mode-switch"><button :class="{active:mode==='pve'}" @click="mode='pve'">PvE</button><button :class="{active:mode==='pvp'}" @click="mode='pvp'">PvP</button></div></div>
         <p v-if="rankingLoading" class="empty-state">Consultando rankings...</p><p v-else-if="rankingError" class="empty-state">{{rankingError}}</p>
-        <div v-else-if="rankings.length" class="ranking-list"><article v-for="ranking in rankings" :key="ranking.id" class="ranking-row"><div><strong>#{{ranking.rank}} {{ranking.league||"PvE"}}</strong><span v-if="ranking.rating!==null">Rating {{ranking.rating}}</span><div class="move-tags"><span v-for="move in (ranking.battle_ranking_moves||[]).sort((a,b)=>a.slot-b.slot)" :key="move.slot">{{move.moves?moveName(move.moves):"Move não informado"}}</span></div></div><a :href="ranking.source_url" target="_blank" rel="noreferrer">{{ranking.data_sources?.name||"Fonte"}} ↗</a></article></div>
+        <p v-if="rankingNotice" class="cache-notice" role="status">{{rankingNotice}}</p><div v-else-if="rankings.length" class="ranking-list"><article v-for="ranking in rankings" :key="ranking.id" class="ranking-row"><div><strong>#{{ranking.rank}} {{ranking.league||"PvE"}}</strong><span v-if="ranking.rating!==null">Rating {{ranking.rating}}</span><div class="move-tags"><span v-for="move in (ranking.battle_ranking_moves||[]).sort((a,b)=>a.slot-b.slot)" :key="move.slot">{{move.moves?moveName(move.moves):"Move não informado"}}</span></div></div><a :href="ranking.source_url" target="_blank" rel="noreferrer">{{ranking.data_sources?.name||"Fonte"}} ↗</a></article></div>
         <p v-else class="empty-state">Ainda não há rankings {{mode.toUpperCase()}} verificados para este Pokémon. Nenhum counter é inventado ou calculado com dados de jogos principais.</p>
       </div>
     </section>
