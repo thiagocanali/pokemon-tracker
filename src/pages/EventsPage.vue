@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { getEventsAndSeasons, type EventRow, type SeasonRow } from "../data/goCatalog";
-import { formatCollectedAt, formatSourceUpdatedAt, formatDataVersion } from "../data/provenance";
+import { formatCollectedAt, formatSourceUpdatedAt, formatDataVersion, formatSourceName } from "../data/provenance";
 const events = ref<EventRow[]>([]);
 const seasons = ref<SeasonRow[]>([]);
 const loading = ref(true);
@@ -42,10 +42,10 @@ onMounted(async () => {
     <p v-if="loading" class="empty-events">Carregando calendário...</p><p v-else-if="error" class="empty-events">{{ error }}</p>
     <div v-else class="events-layout">
       <section class="event-list"><div class="section-title"><div><p class="eyebrow">AGENDA</p><h2>Eventos</h2></div></div>
-        <article v-for="event in upcomingEvents" :key="event.id" class="event-card surface-card"><span class="event-marker"></span><div class="event-content"><div class="event-meta"><span>{{ dateRange(event.starts_at,event.ends_at) }}</span><span class="status">{{ notice ? "Status não confirmado" : new Date(event.starts_at)>now ? "Próximo" : "Em andamento" }}</span></div><h3>{{ eventName(event) }}</h3><p>{{ event.description?.["pt-BR"] || event.description?.en || "Descrição não fornecida pela fonte." }}</p><a :href="event.source_url" target="_blank" rel="noreferrer">Consultar {{ event.data_sources?.name || "fonte" }} ↗</a><small class="provenance">Coletado: {{ formatCollectedAt(event.collected_at) }} · {{ formatSourceUpdatedAt(event.source_updated_at) }} · {{ formatDataVersion(event.data_version) }}</small></div></article>
+        <article v-for="event in upcomingEvents" :key="event.id" class="event-card surface-card"><span class="event-marker"></span><div class="event-content"><div class="event-meta"><span>{{ dateRange(event.starts_at,event.ends_at) }}</span><span class="status">{{ notice ? "Status não confirmado" : new Date(event.starts_at)>now ? "Próximo" : "Em andamento" }}</span></div><h3>{{ eventName(event) }}</h3><p>{{ event.description?.["pt-BR"] || event.description?.en || "Descrição não fornecida pela fonte." }}</p><a :href="event.source_url" target="_blank" rel="noreferrer">Consultar {{ formatSourceName(event.data_sources) }} ↗</a><small class="provenance">Coletado: {{ formatCollectedAt(event.collected_at) }} · {{ formatSourceUpdatedAt(event.source_updated_at) }} · {{ formatDataVersion(event.data_version) }}</small></div></article>
         <p v-if="!upcomingEvents.length" class="empty-events">Ainda não há eventos verificados cadastrados. A PokéAPI não fornece o calendário de Pokémon GO.</p>
       </section>
-      <aside class="side-column"><div class="surface-card quick-card"><p class="eyebrow">TEMPORADAS</p><h2>{{ seasons.length ? "Temporadas catalogadas" : "Sem temporadas cadastradas" }}</h2><article v-for="season in seasons" :key="season.id" class="season-item"><strong>{{ seasonName(season) }}</strong><span>{{ dateRange(season.starts_at,season.ends_at) }}</span><a :href="season.source_url" target="_blank" rel="noreferrer">Fonte: {{ season.data_sources?.name || "não identificada" }} ↗</a><small class="provenance">Coletado: {{ formatCollectedAt(season.collected_at) }} · {{ formatSourceUpdatedAt(season.source_updated_at) }} · {{ formatDataVersion(season.data_version) }}</small></article><p v-if="!seasons.length">Providers de seasons ainda precisam ser conectados.</p></div></aside>
+      <aside class="side-column"><div class="surface-card quick-card"><p class="eyebrow">TEMPORADAS</p><h2>{{ seasons.length ? "Temporadas catalogadas" : "Sem temporadas cadastradas" }}</h2><article v-for="season in seasons" :key="season.id" class="season-item"><strong>{{ seasonName(season) }}</strong><span>{{ dateRange(season.starts_at,season.ends_at) }}</span><a :href="season.source_url" target="_blank" rel="noreferrer">Fonte: {{ formatSourceName(season.data_sources) }} ↗</a><small class="provenance">Coletado: {{ formatCollectedAt(season.collected_at) }} · {{ formatSourceUpdatedAt(season.source_updated_at) }} · {{ formatDataVersion(season.data_version) }}</small></article><p v-if="!seasons.length">Providers de seasons ainda precisam ser conectados.</p></div></aside>
     </div>
   </main>
 </template>
