@@ -1,20 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { supabase } from "../lib/supabase";
+import { getMovesCatalog, type MoveRow } from "../data/moves";
 import { formatSourceDate, getDataSourceHealth, type DataSourceHealth } from "../data/health";
 
-type MoveRow = {
-  id: string; slug: string; names: Record<string, string>; type_id: string; category: string;
-  pve_damage: number | null; pve_energy_delta: number | null; pve_duration_ms: number | null;
-  pvp_damage: number | null; pvp_energy_delta: number | null; pvp_duration_turns: number | null;
-  source_url: string; collected_at: string;
-  pokemon_types?: { names: Record<string, string> } | null;
-  data_sources?: { name: string } | null;
-};
 const moves = ref<MoveRow[]>([]);
 const sources = ref<DataSourceHealth[]>([]);
 const loading = ref(true);
 const error = ref("");
+const cacheNotice = ref("");
 const query = ref("");
 const category = ref("all");
 const filteredMoves = computed(() => moves.value.filter((move) => {
@@ -26,17 +19,18 @@ const moveName = (move: MoveRow) => move.names?.["pt-BR"] || move.names?.en || m
 const typeName = (move: MoveRow) => move.pokemon_types?.names?.["pt-BR"] || move.pokemon_types?.names?.en || move.type_id;
 
 async function loadData() {
-  if (!supabase) { error.value = "Configure o Supabase para consultar o catálogo."; loading.value = false; return; }
   try {
     const [moveResult, sourceResult] = await Promise.all([
-      supabase.from("moves").select("id,slug,names,type_id,category,pve_damage,pve_energy_delta,pve_duration_ms,pvp_damage,pvp_energy_delta,pvp_duration_turns,source_url,collected_at,pokemon_types(names),data_sources(name)").order("slug"),
+      getMovesCatalog(),
       getDataSourceHealth(),
     ]);
-    if (moveResult.error) throw moveResult.error;
-    moves.value = (moveResult.data ?? []) as unknown as MoveRow[];
+    moves.value = moveResult.data;
     sources.value = sourceResult;
+    if (moveResult.status === "offline") {
+      cacheNotice.value = `Exibindo cache local offline (última atualização: ${new Date(moveResult.cachedAt).toLocaleString("pt-BR")}).`;
+    }
   } catch {
-    error.value = "Não foi possível consultar o catálogo de moves.";
+    error.value = "Não foi possível consultar o catálogo de moves. Ainda não há cache local disponível.";
   } finally { loading.value = false; }
 }
 onMounted(loadData);
@@ -47,7 +41,7 @@ onMounted(loadData);
     <section class="page-intro"><div><p class="eyebrow">DATABASE / MOVES</p><h1>Moves de Pokémon GO</h1><p>Dano, energia e duração são exibidos somente quando registrados por uma fonte rastreável.</p></div><div class="result-count"><strong>{{ moves.length }}</strong><span>moves catalogados</span></div></section>
     <section class="tool-panel"><label class="search-field"><span>⌕</span><input v-model="query" type="search" placeholder="Buscar move ou tipo" aria-label="Buscar move" /></label><select v-model="category" aria-label="Filtrar categoria"><option value="all">Todas as categorias</option><option value="fast">Rápidos</option><option value="charged">Carregados</option></select></section>
     <section class="source-panel" aria-labelledby="sources-title"><div><p class="eyebrow">PROVENIÊNCIA</p><h2 id="sources-title">Fontes conectadas</h2></div><div v-if="sources.length" class="source-list"><article v-for="source in sources" :key="source.id" class="source-item"><div><strong>{{ source.name }}</strong><span>{{ source.scope }}</span></div><span class="source-status" :class="source.lastStatus">{{ source.recordCount }} registros · {{ source.lastStatus === "unknown" ? "sem sincronização" : source.lastStatus }}</span><p>Última verificação: {{ formatSourceDate(source.lastCheckedAt) }}</p><p v-if="source.limitations">{{ source.limitations }}</p></article></div><p v-else class="source-empty">Nenhuma fonte catalogada.</p></section>
-    <section class="moves-table" aria-label="Catálogo de moves">
+    <p v-if="cacheNotice" class="empty-state" role="status">{{ cacheNotice }}</p>\n    <section class="moves-table" aria-label="Catálogo de moves">
       <p v-if="loading" class="empty-state">Carregando catálogo...</p>
       <p v-else-if="error" class="empty-state">{{ error }}</p>
       <p v-else-if="!filteredMoves.length" class="empty-state">{{ moves.length ? "Nenhum move corresponde ao filtro." : "Ainda não há moves de Pokémon GO catalogados. A PokéAPI não fornece os dados de batalha deste jogo." }}</p>
