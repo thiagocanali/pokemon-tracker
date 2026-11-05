@@ -9,7 +9,9 @@ as $$
 declare
   v_previous_payload jsonb;
   v_previous_captured_at timestamptz;
+  v_previous_species_collected_at timestamptz;
   v_captured_at timestamptz;
+  v_species_collected_at timestamptz;
   v_field record;
 begin
   if jsonb_typeof(p_species) is distinct from 'object'
@@ -29,8 +31,9 @@ begin
 
   begin
     v_captured_at := (p_snapshot->>'captured_at')::timestamptz;
+    v_species_collected_at := (p_species->>'collected_at')::timestamptz;
   exception when others then
-    raise exception 'Invalid Pokémon catalog captured_at timestamp';
+    raise exception 'Invalid Pokémon catalog timestamp';
   end;
 
   -- Lock the shared species row first, then the individual snapshot entity.
@@ -45,6 +48,17 @@ begin
       0
     )
   );
+
+  select species.collected_at
+    into v_previous_species_collected_at
+  from public.pokemon_species as species
+  where species.id = p_species->>'id';
+
+  if v_previous_species_collected_at is not null
+    and v_species_collected_at < v_previous_species_collected_at then
+    raise exception 'Stale Pokémon species data rejected for %', p_species->>'id'
+      using errcode = '22023';
+  end if;
 
   select snapshot.payload, snapshot.captured_at
     into v_previous_payload, v_previous_captured_at
