@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { getMovesCatalog, type MoveRow } from "../data/moves";
 import { formatSourceDate, formatSourceRecordCount, getDataSourceHealth, type DataSourceHealth } from "../data/health";
-import { formatCollectedAt, formatSourceUpdatedAt, formatDataVersion } from "../data/provenance";
+import { formatCollectedAt, formatSourceUpdatedAt, formatDataVersion, formatSourceName } from "../data/provenance";
 
 const moves = ref<MoveRow[]>([]);
 const sources = ref<DataSourceHealth[]>([]);
@@ -60,7 +60,7 @@ onMounted(loadData);
           <div class="move-name"><span class="move-icon" :class="move.type_id"></span><strong>{{ moveName(move) }}</strong></div>
           <span class="type-pill">{{ typeName(move) }}</span><span class="class-label">{{ move.category === "fast" ? "Rápido" : "Carregado" }}</span>
           <span>{{ move.pve_damage ?? "—" }}</span><span>{{ move.pve_energy_delta ?? "—" }}</span><span>{{ move.pvp_damage ?? "—" }}</span>
-          <div class="move-source"><a :href="move.source_url" target="_blank" rel="noreferrer">{{ move.data_sources?.name || "Fonte" }}</a><small>Coletado: {{ formatCollectedAt(move.collected_at) }}</small><small>{{ formatSourceUpdatedAt(move.source_updated_at) }} · {{ formatDataVersion(move.data_version) }}</small></div>
+          <div class="move-source"><a :href="move.source_url" target="_blank" rel="noreferrer">{{ formatSourceName(move.data_sources) }}</a><small>Coletado: {{ formatCollectedAt(move.collected_at) }}</small><small>{{ formatSourceUpdatedAt(move.source_updated_at) }} · {{ formatDataVersion(move.data_version) }}</small></div>
         </article>
       </template>
     </section>
