@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { getRaidRotations, type RaidBoss, type RaidRotation } from "../data/goCatalog";
-import { formatCollectedAt, formatSourceUpdatedAt, formatDataVersion } from "../data/provenance";
+import { formatCollectedAt, formatSourceUpdatedAt, formatDataVersion, formatSourceName } from "../data/provenance";
 
 const rotations = ref<RaidRotation[]>([]);
 const loading = ref(true);
@@ -41,7 +41,7 @@ onMounted(async () => {
     <section v-else class="rotation-list">
       <article v-for="rotation in activeRotations" :key="rotation.id" class="rotation-card">
         <header><div><span class="eyebrow">ROTAÇÃO</span><h2>{{ notice ? "Status não confirmado" : statusLabel(rotation) }}</h2></div><a :href="rotation.source_url" target="_blank" rel="noreferrer">Ver fonte ↗</a></header>
-        <p class="period">{{ dateLabel(rotation.starts_at) }} — {{ dateLabel(rotation.ends_at) }}</p><p class="provenance">Fonte: {{ rotation.data_sources?.name || "não identificada" }} · Coletado: {{ formatCollectedAt(rotation.collected_at) }} · {{ formatSourceUpdatedAt(rotation.source_updated_at) }} · {{ formatDataVersion(rotation.data_version) }}</p>
+        <p class="period">{{ dateLabel(rotation.starts_at) }} — {{ dateLabel(rotation.ends_at) }}</p><p class="provenance">Fonte: {{ formatSourceName(rotation.data_sources) }} · Coletado: {{ formatCollectedAt(rotation.collected_at) }} · {{ formatSourceUpdatedAt(rotation.source_updated_at) }} · {{ formatDataVersion(rotation.data_version) }}</p>
         <div class="boss-grid">
           <article v-for="boss in rotation.raid_rotation_bosses" :key="boss.tier + bossName(boss)" class="boss-card">
             <img v-if="sprite(boss)" :src="sprite(boss)" :alt="bossName(boss)" />
