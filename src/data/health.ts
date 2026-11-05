@@ -14,8 +14,25 @@ export type DataSourceHealth = {
 };
 
 export function formatSourceDate(value: string | null) {
-  if (!value) return "Ainda não verificada";
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  if (!value) return "Não informada";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Data inválida";
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  }).format(date) + " UTC";
+}
+
+export function formatSourceStatus(status: DataSourceHealth["lastStatus"]) {
+  const labels: Record<DataSourceHealth["lastStatus"], string> = {
+    unknown: "Sem verificação",
+    updated: "Atualizada",
+    stale: "Desatualizada",
+    offline: "Offline",
+    unavailable: "Indisponível",
+  };
+  return labels[status];
 }
 
 export async function getDataSourceHealth(): Promise<DataSourceHealth[]> {
