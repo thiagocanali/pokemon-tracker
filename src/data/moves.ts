@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { isCacheFresh } from "./cache/freshness";
 import { readPersistentCache, writePersistentCache } from "./cache/indexedDb";
+import type { SourceNameRelation } from "./provenance";
 
 export type MoveRow = {
   id: string;
