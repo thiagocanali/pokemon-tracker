@@ -14,11 +14,16 @@ export type PokemonResult = {
   source: "supabase" | "indexeddb" | "pokeapi";
 };
 
+type CanonicalSnapshot = {
+  payload: Pokemon;
+  capturedAt: string;
+};
+
 function normalizeKey(value: string | number) {
   return String(value).trim().toLowerCase();
 }
 
-async function fromCanonicalStore(key: string): Promise<Pokemon | null> {
+async function fromCanonicalStore(key: string): Promise<CanonicalSnapshot | null> {
   if (!supabase) return null;
 
   let pokemonId = Number(key);
@@ -46,15 +51,18 @@ async function fromCanonicalStore(key: string): Promise<Pokemon | null> {
 
   const { data, error } = await supabase
     .from("data_snapshots")
-    .select("payload")
+    .select("payload,captured_at")
     .eq("entity_type", "pokemon")
     .eq("entity_id", String(pokemonId))
     .order("captured_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (error || !data?.payload) return null;
-  return data.payload as Pokemon;
+  if (error || !data?.payload || typeof data.captured_at !== "string") return null;
+  return {
+    payload: data.payload as Pokemon,
+    capturedAt: data.captured_at,
+  };
 }
 
 async function fromPokeApi(key: string): Promise<Pokemon> {
@@ -66,24 +74,36 @@ async function fromPokeApi(key: string): Promise<Pokemon> {
 export async function getCanonicalPokemon(value: string | number): Promise<PokemonResult> {
   const key = normalizeKey(value);
   const cached = memoryCache.get(key);
+
   if (cached && isCacheFresh(cached.cachedAt)) {
     return { ...cached.result, status: "cached" };
   }
 
+  let canonical: CanonicalSnapshot | null = null;
+
   try {
-    const canonical = await fromCanonicalStore(key);
-    if (canonical) {
-      const result: PokemonResult = { data: canonical, status: "fresh", source: "supabase" };
-      memoryCache.set(key, { result, cachedAt: new Date().toISOString() });
+    canonical = await fromCanonicalStore(key);
+
+    if (canonical && isCacheFresh(canonical.capturedAt)) {
+      const result: PokemonResult = {
+        data: canonical.payload,
+        status: "fresh",
+        source: "supabase",
+      };
+      memoryCache.set(key, { result, cachedAt: canonical.capturedAt });
       return result;
     }
   } catch {
-    // PokéAPI and the persistent cache remain availability fallbacks.
+    // PokéAPI and persistent caches remain availability fallbacks.
   }
 
   const persistent = await readPersistentCache<Pokemon>(`pokemon:${key}`);
   if (persistent && isCacheFresh(persistent.cachedAt)) {
-    const result: PokemonResult = { data: persistent.value, status: "cached", source: "indexeddb" };
+    const result: PokemonResult = {
+      data: persistent.value,
+      status: "cached",
+      source: "indexeddb",
+    };
     memoryCache.set(key, { result, cachedAt: persistent.cachedAt });
     return result;
   }
@@ -97,17 +117,26 @@ export async function getCanonicalPokemon(value: string | number): Promise<Pokem
   } catch (error) {
     const stale = persistent
       ? { value: persistent.value, cachedAt: persistent.cachedAt, source: "indexeddb" as const }
-      : cached
-        ? { value: cached.result.data, cachedAt: cached.cachedAt, source: cached.result.source }
-        : null;
+      : canonical
+        ? { value: canonical.payload, cachedAt: canonical.capturedAt, source: "supabase" as const }
+        : cached
+          ? { value: cached.result.data, cachedAt: cached.cachedAt, source: cached.result.source }
+          : null;
+
     if (stale) {
-      const result: PokemonResult = { data: stale.value, status: "offline", source: stale.source };
+      const result: PokemonResult = {
+        data: stale.value,
+        status: "offline",
+        source: stale.source,
+      };
       memoryCache.set(key, { result, cachedAt: stale.cachedAt });
       return result;
     }
+
     throw error;
   }
 }
+
 export function clearCanonicalCache() {
   memoryCache.clear();
 }
