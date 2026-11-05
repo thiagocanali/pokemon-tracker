@@ -31,3 +31,10 @@ export function formatSourceUpdatedAt(value: string | null | undefined) {
 export function formatDataVersion(value: string | null | undefined) {
   return value ? `Versão: ${value}` : "Versão da fonte não informada";
 }
+
+export type SourceNameRelation = { name: string } | { name: string }[] | null;
+
+export function formatSourceName(source: SourceNameRelation | undefined) {
+  if (Array.isArray(source)) return source[0]?.name || "Fonte não identificada";
+  return source?.name || "Fonte não identificada";
+}
