@@ -11,7 +11,6 @@ export type BattleRanking = {
   source_id: string;
   source_url: string;
   collected_at: string;
-  source_updated_at: string | null;
   data_version: string | null;
   data_sources?: { name: string } | null;
   battle_ranking_moves?: {
@@ -48,7 +47,7 @@ export async function getBattleRankings(
       const { data, error } = await supabase
         .from("battle_rankings")
         .select(
-          "id,mode,league,rank,rating,source_id,source_url,collected_at,source_updated_at,data_version,data_sources(name),battle_ranking_moves(slot,moves(names,slug)),pokemon_forms!inner(species_id)",
+          "id,mode,league,rank,rating,source_id,source_url,collected_at,data_version,data_sources(name),battle_ranking_moves(slot,moves(names,slug)),pokemon_forms!inner(species_id)",
         )
         .eq("pokemon_forms.species_id", `species-${pokemonId}`)
         .eq("mode", mode)
