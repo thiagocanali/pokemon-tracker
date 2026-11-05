@@ -95,3 +95,73 @@ Habilitar `pokebattler` em `data_sources` somente após revisão dos termos, fix
 A documentação v2 atual lista também `/rocket`, rankings PvP por liga e a API de counters por boss. Ela explicita parâmetros `sort`, `weatherCondition`, `dodgeStrategy` e `aggregation`, e alerta que rankings globais são caros; para consultas de baixa latência, preferir counters pré-calculados por boss. Há documentação mais antiga com nomenclatura diferente para o Estimator (por exemplo, mortes por raid). O adaptador deverá registrar a versão/contexto da fonte e nunca assumir que métricas com o mesmo rótulo têm a mesma definição entre versões.
 
 **Bloqueio atual:** o endpoint HTTP não foi capturado neste repositório como fixture real. Portanto, nenhuma interface TypeScript nem integração de produção deve ser escrita até validar uma resposta JSON real e a URL exata usada pela versão atual.
+
+
+## Revisão da documentação pública v2 (2026-11-05)
+
+A documentação comunitária atual em `https://v2.pokebattler.com/developers` apresenta um contrato v2 que não deve ser confundido com os caminhos descritos na seção histórica acima. A página declara explicitamente que é documentação não oficial, sem SLA, com limites de taxa não publicados e sujeita a mudanças. Ela recomenda cache agressivo e uso responsável.
+
+### Leituras públicas documentadas na v2
+
+- `GET https://fight.pokebattler.com/raids`: rotação atual, tiers e raids anunciadas.
+- `GET https://fight.pokebattler.com/pokemon`: espécies, tipos, stats base e movesets.
+- `GET https://fight.pokebattler.com/moves`: movimentos, poder, energia e duração.
+- `GET https://fight.pokebattler.com/rocket`: escalações da Equipe GO Rocket.
+- Counters por chefe: a documentação v2 exemplifica o caminho `/raids/defenders/{boss}/levels/{level}/{attacker}/strategies/CINEMATIC_ATTACK_WHEN_POSSIBLE/DEFENSE_RANDOM_MC`.
+- PvP: `/pvp/rankings/{side}/leagues/{league}/strategies/PVP/PVP`.
+
+A mesma documentação recomenda evitar rankings globais sob demanda: são computacionalmente caros e podem expirar por timeout. Para consultas de baixa latência, priorizar counters pré-simulados por chefe. O consumo público documentado é GET sem autenticação; isso não substitui a revisão de termos, atribuição e direitos de redistribuição.
+
+### Semântica atual do Estimator
+
+Na documentação v2 consultada, Estimator é uma estimativa do número de treinadores necessários para vencer a raid; menor é melhor. A página de ajuda também explica que o valor agregado pode representar a média entre os movesets do chefe, enquanto cada linha mostra o melhor moveset do atacante. Portanto:
+
+- não tratar Estimator como DPS, TDO, porcentagem ou nota de 0 a 100;
+- persistir boss, tier/nível, atacante, estratégia de ataque, estratégia de defesa, clima, dodge strategy, aggregation, sort e versão/contexto da consulta;
+- não assumir que o resultado de uma URL ou versão antiga possui a mesma semântica da v2;
+- manter resultados de raids, Max Battles, Rocket e PvP em domínios separados.
+
+### Bloqueios mantidos
+
+A documentação atualiza o conhecimento dos endpoints, mas não fornece no repositório uma fixture JSON real capturada e validada. As tentativas de abrir diretamente `/raids` e `/moves` no leitor disponível não retornaram payloads. Assim, ainda não há contrato TypeScript confiável para implementar o adaptador.
+
+**Decisão:** atualizar a referência documental, mas manter `pokebattler` desabilitado. Próximo passo técnico autorizado: obter e versionar uma resposta JSON real de cada endpoint que será consumido, validar os termos e só então definir schema/adapter. Não criar payload de exemplo como se fosse resposta real.
+
+
+## Atualização de arquitetura: referência Pokébattler atual (2026-11-05)
+
+A documentação oficial do projeto passou a oferecer duas superfícies distintas:
+
+1. **Fight HTTP API** — leituras GET públicas sem autenticação em `https://fight.pokebattler.com`.
+2. **MCP Streamable HTTP** — `https://mcp.pokebattler.com/mcp`, voltado a assistentes e ferramentas de IA.
+
+Referências:
+- https://www.pokebattler.com/developers/
+- https://v2.pokebattler.com/developers
+- https://v2.pokebattler.com/help
+
+### MCP: uso previsto e limites
+
+A documentação do Pokébattler recomenda MCP para assistentes porque respostas HTTP brutas são grandes: aproximadamente 1,3 MB para uma consulta de counters e 7 MB para a Pokédex completa. O servidor MCP reduz as respostas a cerca de 1–5 KB e oferece ferramentas para counters de raids, melhores atacantes, rotação ativa, Max/Dynamax, Rocket, simulação individual, montagem de equipes e consulta da Pokédex.
+
+A documentação informa que o MCP exige uma conta gratuita Pokébattler; ferramentas que leem a coleção pessoal do treinador exigem assinatura. Não presumir que o endpoint MCP seja anônimo ou que possa ser usado como ingestão pública sem validar o fluxo de autenticação e os termos.
+
+### Decisão de arquitetura revisada
+
+- **Ingestão/cache de catálogo público:** avaliar primeiro a Fight HTTP API, com consultas pontuais, payload limitado, cache agressivo e User-Agent descritivo. Não baixar `/pokemon` repetidamente nem executar rankings globais sob demanda.
+- **PokéAdvisor/agente de IA:** avaliar MCP como ferramenta de consulta, após validar autenticação, ferramentas disponíveis, schema de resposta e atribuição. MCP não substitui o banco local nem o cache offline.
+- **Counters PvE:** preferir endpoint pré-simulado por chefe ou ferramenta MCP correspondente; não consultar rankings globais completos como fluxo normal.
+- **Pokebox pessoal:** não implementar leitura nem escrita da conta do usuário nesta fase. Não pedir credenciais Pokébattler nem armazenar JWT.
+- **Max/Dynamax, Rocket e PvP:** manter contratos e telas separados. Max usa equipe de três e papéis próprios; Rocket usa mecânica 3v3 com escudos; raids usam equipe de seis. Não compartilhar rankings entre esses domínios.
+
+### Semântica confirmada na documentação atual
+
+Estimator é a estimativa de treinadores necessários para vencer a raid, menor é melhor. O resultado agregado pode representar média entre os movesets do chefe, enquanto a linha do atacante exibe seu melhor moveset. A lista principal é ordenada por Estimator; métricas como DPS, TDO, Power, Time e Deaths não devem ser inferidas a partir desse valor.
+
+### Status de validação
+
+- Documentação de endpoints e arquitetura revisada.
+- Acesso direto à URL `https://fight.pokebattler.com/raids` não retornou payload ao leitor web utilizado nesta auditoria.
+- Não há fixture JSON HTTP/MCP capturada e versionada no repositório.
+- Nenhum contrato TypeScript, cliente MCP, função Edge ou ingestão foi ativado.
+- A próxima etapa permanece a captura explícita de respostas reais em ambiente de desenvolvimento, com URL, data, contexto e payload sanitizado. Até lá, manter o provedor desabilitado.
