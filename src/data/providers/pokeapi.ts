@@ -98,9 +98,9 @@ export const pokeApiPokemonProvider: PokemonProvider = {
 
     try {
       const direct = await this.get(normalized);
-      if (!/^\\d+$/.test(normalized)) return [direct];
+      if (!/^\d+$/.test(normalized)) return [direct];
 
-      const dexNumber = direct.species?.url.match(/\\/pokemon-species\\/(\\d+)\\/?$/)?.[1];
+      const dexNumber = direct.species?.url.match(/\/pokemon-species\/(\d+)\/?$/)?.[1];
       if (dexNumber === normalized) return [direct];
     } catch {
       // Continue with the catalog search below.
