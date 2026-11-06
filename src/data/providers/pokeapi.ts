@@ -56,6 +56,20 @@ async function fetchJson<T>(path: string): Promise<T> {
   }
 }
 
+
+async function resolvePokemonDetails(names: string[]): Promise<Pokemon[]> {
+  const settled = await Promise.allSettled(names.map((name) => pokeApiPokemonProvider.get(name)));
+  const details = settled
+    .filter((result): result is PromiseFulfilledResult<Pokemon> => result.status === "fulfilled")
+    .map((result) => result.value);
+
+  if (!details.length && names.length) {
+    throw new Error("Não foi possível carregar os detalhes dos Pokémon");
+  }
+
+  return details;
+}
+
 const source: DataSource = {
   id: "pokeapi",
   name: "PokéAPI",
@@ -83,7 +97,7 @@ export const pokeApiPokemonProvider: PokemonProvider = {
       totalCount = catalog.count;
     }
 
-    const details = await Promise.all(names.map((name) => this.get(name)));
+    const details = await resolvePokemonDetails(names);
 
     return {
       pokemon: details,
@@ -118,7 +132,7 @@ export const pokeApiPokemonProvider: PokemonProvider = {
       })
       .slice(0, 20);
 
-    return Promise.all(matches.map(({ name }) => this.get(name)));
+    return resolvePokemonDetails(matches.map(({ name }) => name));
   },
 
   get(idOrName) {
