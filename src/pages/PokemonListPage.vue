@@ -28,7 +28,8 @@ async function loadPage(nextPage: number) {
 
 async function filterByType() {
   page.value = 1;
-  if (!query.value.trim()) await store.loadList(1, selectedType.value);
+  if (query.value.trim()) await store.searchPokemon(query.value, selectedType.value);
+  else await store.loadList(1, selectedType.value);
 }
 
 watch(query, (value) => {
@@ -37,7 +38,7 @@ watch(query, (value) => {
 
   searchTimer = setTimeout(async () => {
     if (value.trim()) {
-      await store.searchPokemon(value);
+      await store.searchPokemon(value, selectedType.value);
     } else {
       await store.loadList(1, selectedType.value);
     }
