@@ -106,16 +106,20 @@ export const pokeApiPokemonProvider: PokemonProvider = {
     };
   },
 
-  async search(query) {
+  async search(query, type = "") {
     const normalized = query.trim().toLowerCase();
+    const normalizedType = type.trim().toLowerCase();
     if (!normalized) return [];
+
+    const matchesType = (pokemon: Pokemon) =>
+      !normalizedType || pokemon.types.some(({ type: pokemonType }) => pokemonType.name === normalizedType);
 
     try {
       const direct = await this.get(normalized);
-      if (!/^\d+$/.test(normalized)) return [direct];
-
-      const dexNumber = direct.species?.url.match(/\/pokemon-species\/(\d+)\/?$/)?.[1];
-      if (dexNumber === normalized) return [direct];
+      const dexNumber = direct.species?.url.match(/\\/pokemon-species\\/(\\d+)\\/?$/)?.[1];
+      const isExactMatch = !/^\\d+$/.test(normalized) || dexNumber === normalized;
+      if (isExactMatch && matchesType(direct)) return [direct];
+      if (isExactMatch && !normalizedType) return [direct];
     } catch {
       // Continue with the catalog search below.
     }
@@ -125,14 +129,24 @@ export const pokeApiPokemonProvider: PokemonProvider = {
       ? await fetchJson<PokemonCatalog>(`/pokemon?limit=${summary.count}&offset=0`)
       : summary;
 
-    const matches = catalog.results
-      .filter(({ name, url }) => {
-        const resourceId = url.split("/").filter(Boolean).pop();
-        return name.includes(normalized) || resourceId === normalized;
-      })
-      .slice(0, 20);
+    const matches = catalog.results.filter(({ name, url }) => {
+      const resourceId = url.split("/").filter(Boolean).pop();
+      return name.includes(normalized) || resourceId === normalized;
+    });
 
-    return resolvePokemonDetails(matches.map(({ name }) => name));
+    if (!normalizedType) {
+      return resolvePokemonDetails(matches.slice(0, 20).map(({ name }) => name));
+    }
+
+    const matchingPokemon: Pokemon[] = [];
+    for (let offset = 0; offset < matches.length && matchingPokemon.length < 20; offset += 20) {
+      const batch = await resolvePokemonDetails(
+        matches.slice(offset, offset + 20).map(({ name }) => name),
+      );
+      matchingPokemon.push(...batch.filter(matchesType));
+    }
+
+    return matchingPokemon.slice(0, 20);
   },
 
   get(idOrName) {
