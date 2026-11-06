@@ -17,13 +17,14 @@ export interface Pokemon {
 }
 
 /**
- * Returns the species National Pokédex number from the species resource URL.
- * Falls back to the Pokémon resource ID only for legacy/incomplete snapshots.
+ * Returns the National Pokédex number from the species resource URL.
+ * Returns null when the species relationship is missing or malformed; a
+ * Pokémon resource/form ID must never be presented as a species Dex number.
  */
-export function getPokemonDexNumber(pokemon: Pick<Pokemon, "id" | "species">): number {
+export function getPokemonDexNumber(pokemon: Pick<Pokemon, "species">): number | null {
   const speciesId = pokemon.species?.url.match(/\/pokemon-species\/(\d+)\/?$/)?.[1];
   const parsed = speciesId ? Number(speciesId) : NaN;
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : pokemon.id;
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 export interface PokemonPage {

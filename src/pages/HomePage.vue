@@ -63,7 +63,7 @@ onBeforeUnmount(() => {
           <kbd>/</kbd>
         </label>
         <div v-if="query" class="search-results">
-          <RouterLink v-for="pokemon in searchResults" :key="pokemon.id" :to="`/pokemon/${pokemon.id}`">#{{ String(getPokemonDexNumber(pokemon)).padStart(3, '0') }} {{ pokemon.name }}</RouterLink>
+          <RouterLink v-for="pokemon in searchResults" :key="pokemon.id" :to="`/pokemon/${pokemon.id}`">{{ getPokemonDexNumber(pokemon) === null ? "ID " + pokemon.id : "#" + String(getPokemonDexNumber(pokemon)).padStart(3, "0") }} {{ pokemon.name }}</RouterLink>
           <span v-if="store.loading">Consultando a Pokédex...</span>
           <span v-else-if="searchResults.length === 0">Nenhum Pokémon encontrado para esta busca.</span>
         </div>
