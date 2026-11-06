@@ -1,5 +1,22 @@
 export interface Pokemon {
-  /**
+  /** PokéAPI resource ID. This identifies a Pokémon resource/form, not its species Pokédex number. */
+  id: number;
+  name: string;
+  /** Species resource is the canonical source for the National Pokédex number. */
+  species?: { name: string; url: string };
+  sprites: {
+    front_default: string;
+    back_default?: string;
+  };
+  types: { type: { name: string } }[];
+  height?: number;
+  weight?: number;
+  stats?: { stat: { name: string }; base_stat: number }[];
+  abilities?: { ability: { name: string } }[];
+  moves?: { move: { name: string } }[];
+}
+
+/**
  * Returns the National Pokédex number from the species resource URL.
  * Returns null when the species relationship is missing or malformed; a
  * Pokémon resource/form ID must never be presented as a species Dex number.
