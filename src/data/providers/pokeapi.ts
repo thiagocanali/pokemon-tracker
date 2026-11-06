@@ -116,10 +116,10 @@ export const pokeApiPokemonProvider: PokemonProvider = {
 
     try {
       const direct = await this.get(normalized);
-      const dexNumber = direct.species?.url.match(/\\/pokemon-species\\/(\\d+)\\/?$/)?.[1];
-      const isExactMatch = !/^\\d+$/.test(normalized) || dexNumber === normalized;
+      const dexNumber = direct.species?.url.split("/").filter(Boolean).pop();
+      const isNumericQuery = [...normalized].every((character) => character >= "0" && character <= "9");
+      const isExactMatch = !isNumericQuery || dexNumber === normalized;
       if (isExactMatch && matchesType(direct)) return [direct];
-      if (isExactMatch && !normalizedType) return [direct];
     } catch {
       // Continue with the catalog search below.
     }
