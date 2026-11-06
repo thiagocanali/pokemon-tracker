@@ -14,12 +14,14 @@ function openDatabase(): Promise<IDBDatabase | null> {
   if (databasePromise) return databasePromise;
 
   let pending: Promise<IDBDatabase | null>;
+  let failedSynchronously = false;
   pending = new Promise<IDBDatabase | null>((resolve) => {
     let request: IDBOpenDBRequest;
 
     try {
       request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     } catch {
+      failedSynchronously = true;
       resolve(null);
       return;
     }
@@ -51,7 +53,7 @@ function openDatabase(): Promise<IDBDatabase | null> {
     // It will either succeed once that connection closes or fail with an error.
   });
 
-  databasePromise = pending;
+  databasePromise = failedSynchronously ? null : pending;
   return pending;
 }
 
