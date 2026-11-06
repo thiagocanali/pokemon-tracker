@@ -97,7 +97,7 @@ export const pokeApiPokemonProvider: PokemonProvider = {
       totalCount = catalog.count;
     }
 
-    const details = await Promise.all(names.map((name) => this.get(name)));
+    const details = await resolvePokemonDetails(names);
 
     return {
       pokemon: details,
@@ -132,7 +132,7 @@ export const pokeApiPokemonProvider: PokemonProvider = {
       })
       .slice(0, 20);
 
-    return Promise.all(matches.map(({ name }) => this.get(name)));
+    return resolvePokemonDetails(matches.map(({ name }) => name));
   },
 
   get(idOrName) {
