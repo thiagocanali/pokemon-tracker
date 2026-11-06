@@ -97,14 +97,28 @@ export const pokeApiPokemonProvider: PokemonProvider = {
     if (!normalized) return [];
 
     try {
-      return [await this.get(normalized)];
+      const direct = await this.get(normalized);
+      if (!/^\\d+$/.test(normalized)) return [direct];
+
+      const dexNumber = direct.species?.url.match(/\\/pokemon-species\\/(\\d+)\\/?$/)?.[1];
+      if (dexNumber === normalized) return [direct];
     } catch {
-      const catalog = await fetchJson<PokemonCatalog>("/pokemon?limit=2000&offset=0");
-      const matches = catalog.results
-        .filter(({ name, url }) => name.includes(normalized) || url.split("/").filter(Boolean).pop() === normalized)
-        .slice(0, 20);
-      return Promise.all(matches.map(({ name }) => this.get(name)));
+      // Continue with the catalog search below.
     }
+
+    const summary = await fetchJson<PokemonCatalog>("/pokemon?limit=1&offset=0");
+    const catalog = summary.count > 1
+      ? await fetchJson<PokemonCatalog>(`/pokemon?limit=${summary.count}&offset=0`)
+      : summary;
+
+    const matches = catalog.results
+      .filter(({ name, url }) => {
+        const resourceId = url.split("/").filter(Boolean).pop();
+        return name.includes(normalized) || resourceId === normalized;
+      })
+      .slice(0, 20);
+
+    return Promise.all(matches.map(({ name }) => this.get(name)));
   },
 
   get(idOrName) {
