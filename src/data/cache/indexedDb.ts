@@ -13,12 +13,15 @@ function openDatabase(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === "undefined") return Promise.resolve(null);
   if (databasePromise) return databasePromise;
 
-  databasePromise = new Promise<IDBDatabase | null>((resolve) => {
+  let pending: Promise<IDBDatabase | null>;
+  let failedSynchronously = false;
+  pending = new Promise<IDBDatabase | null>((resolve) => {
     let request: IDBOpenDBRequest;
 
     try {
       request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     } catch {
+      failedSynchronously = true;
       resolve(null);
       return;
     }
@@ -32,15 +35,26 @@ function openDatabase(): Promise<IDBDatabase | null> {
 
     request.onsuccess = () => {
       const database = request.result;
-      database.onversionchange = () => database.close();
+      database.onversionchange = () => {
+        database.close();
+        // A later operation must open a fresh connection after another tab upgrades the DB.
+        if (databasePromise === pending) databasePromise = null;
+      };
       resolve(database);
     };
 
-    request.onerror = () => resolve(null);
-    request.onblocked = () => resolve(null);
-  }).catch(() => null);
+    request.onerror = () => {
+      // Do not permanently cache a failed open; later reads/writes may succeed.
+      if (databasePromise === pending) databasePromise = null;
+      resolve(null);
+    };
 
-  return databasePromise!;
+    // Keep the request pending while another tab holds an older connection.
+    // It will either succeed once that connection closes or fail with an error.
+  });
+
+  databasePromise = failedSynchronously ? null : pending;
+  return pending;
 }
 
 export async function readPersistentCache<T>(
