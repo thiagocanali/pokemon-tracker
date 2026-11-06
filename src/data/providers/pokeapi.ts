@@ -56,6 +56,20 @@ async function fetchJson<T>(path: string): Promise<T> {
   }
 }
 
+
+async function resolvePokemonDetails(names: string[]): Promise<Pokemon[]> {
+  const settled = await Promise.allSettled(names.map((name) => pokeApiPokemonProvider.get(name)));
+  const details = settled
+    .filter((result): result is PromiseFulfilledResult<Pokemon> => result.status === "fulfilled")
+    .map((result) => result.value);
+
+  if (!details.length && names.length) {
+    throw new Error("Não foi possível carregar os detalhes dos Pokémon");
+  }
+
+  return details;
+}
+
 const source: DataSource = {
   id: "pokeapi",
   name: "PokéAPI",
