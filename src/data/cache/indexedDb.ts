@@ -20,7 +20,6 @@ function openDatabase(): Promise<IDBDatabase | null> {
     try {
       request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     } catch {
-      if (databasePromise === pending) databasePromise = null;
       resolve(null);
       return;
     }
