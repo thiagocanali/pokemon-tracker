@@ -44,6 +44,6 @@ export interface DataSource {
 export interface PokemonProvider {
   readonly source: DataSource;
   list(page: number, type?: string): Promise<PokemonPage>;
-  search(query: string): Promise<Pokemon[]>;
+  search(query: string, type?: string): Promise<Pokemon[]>;
   get(idOrName: string | number): Promise<Pokemon>;
 }

@@ -98,7 +98,7 @@ export const usePokemonStore = defineStore("pokemon", {
         this.loading = false;
       }
     },
-    async searchPokemon(query: string) {
+    async searchPokemon(query: string, type = "") {
       const normalized = query.trim().toLowerCase();
       const requestId = ++this.searchRequestId;
       if (!normalized) {
@@ -110,12 +110,9 @@ export const usePokemonStore = defineStore("pokemon", {
       this.loading = true;
       this.error = "";
       try {
-        const results = await pokeApiPokemonProvider.search(normalized);
+        const results = await pokeApiPokemonProvider.search(normalized, type);
         if (requestId !== this.searchRequestId) return;
         this.searchResults = results;
-        const allTypes = new Set<string>();
-        this.searchResults.forEach((pokemon) => pokemon.types.forEach((type) => allTypes.add(type.type.name)));
-        this.types = Array.from(allTypes).sort();
       } catch (e: any) {
         if (requestId !== this.searchRequestId) return;
         this.error = e.message;
