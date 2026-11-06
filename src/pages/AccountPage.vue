@@ -8,7 +8,7 @@ import { getPokemonDexNumber } from "../data/providers/contracts";
 const router = useRouter();
 const pokemonStore = usePokemonStore();
 const favoriteCount = computed(() => pokemonStore.favorites.length);
-const favoritePokemon = ref<{ id: number; dexNumber: number; name: string; sprite: string }[]>([]);
+const favoritePokemon = ref<{ id: number; dexNumber: number | null; name: string; sprite: string }[]>([]);
 const email = ref("");
 const loading = ref(true);
 const deleting = ref(false);
@@ -89,7 +89,7 @@ async function deleteAccount() {
         <div class="favorite-grid">
           <RouterLink v-for="pokemon in favoritePokemon" :key="pokemon.id" :to="`/pokemon/${pokemon.id}`" class="favorite-item">
             <img :src="pokemon.sprite" :alt="pokemon.name" />
-            <span>#{{ String(pokemon.dexNumber).padStart(3, '0') }}</span>
+            <span>{{ pokemon.dexNumber === null ? "ID " + pokemon.id : "#" + String(pokemon.dexNumber).padStart(3, "0") }}</span>
             <strong>{{ pokemon.name }}</strong>
           </RouterLink>
         </div>
