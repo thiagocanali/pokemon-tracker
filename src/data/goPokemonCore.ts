@@ -79,10 +79,10 @@ function mapRow(row: any): GoPokemonCore {
   };
 }
 
-async function fetchCore(query: string, dexNumber?: number): Promise<GoPokemonCore[]> {
+function createCoreQuery() {
   if (!supabase) throw new Error("Supabase indisponível para o núcleo de dados Pokémon GO.");
 
-  let request = supabase
+  return supabase
     .from("pokemon_forms")
     .select(
       "id,species_id,slug,names,variant,is_default,availability,source_id,source_url,collected_at,source_updated_at,data_version,confidence,pokemon_species!inner(dex_number,slug),pokemon_form_types(slot,type_id,pokemon_types(names)),pokemon_go_stats(attack,defense,stamina,max_cp)",
@@ -90,20 +90,40 @@ async function fetchCore(query: string, dexNumber?: number): Promise<GoPokemonCo
     .order("species_id")
     .order("is_default", { ascending: false })
     .limit(100);
+}
+
+async function fetchCore(query: string, dexNumber?: number): Promise<GoPokemonCore[]> {
+  if (!supabase) throw new Error("Supabase indisponível para o núcleo de dados Pokémon GO.");
 
   if (dexNumber !== undefined) {
-    request = request.eq("pokemon_species.dex_number", dexNumber);
+    const { data, error } = await createCoreQuery().eq("pokemon_species.dex_number", dexNumber);
+    if (error) throw error;
+    return (data ?? []).map(mapRow);
   }
 
-  if (query.trim()) {
-    const pattern = `%${query.trim().toLowerCase()}%`;
-    request = request.or(`slug.ilike.${pattern},pokemon_species.slug.ilike.${pattern}`);
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    const { data, error } = await createCoreQuery();
+    if (error) throw error;
+    return (data ?? []).map(mapRow);
   }
 
-  const { data, error } = await request;
-  if (error) throw error;
+  // PostgREST cannot OR filters across the parent table and an embedded relation.
+  // Query each indexed slug independently, then merge by canonical form ID.
+  const pattern = `%${normalizedQuery.replace(/[\\\\%_]/g, "\\\\$&")}%`;
+  const [formResult, speciesResult] = await Promise.all([
+    createCoreQuery().ilike("slug", pattern),
+    createCoreQuery().ilike("pokemon_species.slug", pattern),
+  ]);
 
-  return (data ?? []).map(mapRow);
+  if (formResult.error) throw formResult.error;
+  if (speciesResult.error) throw speciesResult.error;
+
+  const unique = new Map<string, any>();
+  for (const row of [...(formResult.data ?? []), ...(speciesResult.data ?? [])]) {
+    unique.set(row.id, row);
+  }
+  return [...unique.values()].map(mapRow);
 }
 
 export async function getGoPokemonCore(
