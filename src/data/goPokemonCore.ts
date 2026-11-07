@@ -1,0 +1,137 @@
+import { supabase } from "../lib/supabase";
+import { isCacheFresh } from "./cache/freshness";
+import { readPersistentCache, writePersistentCache } from "./cache/indexedDb";
+import type { PokemonTypeId } from "./model";
+
+export type GoPokemonCore = {
+  formId: string;
+  speciesId: string;
+  dexNumber: number;
+  formSlug: string;
+  speciesSlug: string;
+  names: Record<string, string>;
+  variant: string;
+  isDefault: boolean;
+  availability: "available" | "unavailable" | "unknown";
+  types: Array<{ id: PokemonTypeId; slot: number; names: Record<string, string> }>;
+  stats: {
+    attack: number;
+    defense: number;
+    stamina: number;
+    maxCp: number | null;
+  } | null;
+  provenance: {
+    sourceId: string;
+    sourceUrl: string;
+    collectedAt: string;
+    sourceUpdatedAt: string | null;
+    dataVersion: string | null;
+    confidence: number | null;
+  };
+};
+
+export type GoPokemonCoreResult = {
+  data: GoPokemonCore[];
+  status: "fresh" | "cached" | "offline" | "unavailable";
+  cachedAt: string;
+};
+
+const CACHE_PREFIX = "pokego:core:";
+const CACHE_TTL_MS = 30 * 60 * 1000;
+
+function cacheKey(query: string, dexNumber?: number) {
+  return `${CACHE_PREFIX}${query.trim().toLowerCase()}:${dexNumber ?? "all"}`;
+}
+
+function mapRow(row: any): GoPokemonCore {
+  const species = row.pokemon_species;
+  return {
+    formId: row.id,
+    speciesId: row.species_id,
+    dexNumber: species.dex_number,
+    formSlug: row.slug,
+    speciesSlug: species.slug,
+    names: row.names ?? {},
+    variant: row.variant,
+    isDefault: row.is_default,
+    availability: row.availability,
+    types: (row.pokemon_form_types ?? []).map((item: any) => ({
+      id: item.type_id as PokemonTypeId,
+      slot: item.slot,
+      names: item.pokemon_types?.names ?? {},
+    })),
+    stats: row.pokemon_go_stats
+      ? {
+          attack: row.pokemon_go_stats.attack,
+          defense: row.pokemon_go_stats.defense,
+          stamina: row.pokemon_go_stats.stamina,
+          maxCp: row.pokemon_go_stats.max_cp,
+        }
+      : null,
+    provenance: {
+      sourceId: row.source_id,
+      sourceUrl: row.source_url,
+      collectedAt: row.collected_at,
+      sourceUpdatedAt: row.source_updated_at,
+      dataVersion: row.data_version,
+      confidence: row.confidence,
+    },
+  };
+}
+
+async function fetchCore(query: string, dexNumber?: number): Promise<GoPokemonCore[]> {
+  if (!supabase) throw new Error("Supabase indisponível para o núcleo de dados Pokémon GO.");
+
+  let request = supabase
+    .from("pokemon_forms")
+    .select(
+      "id,species_id,slug,names,variant,is_default,availability,source_id,source_url,collected_at,source_updated_at,data_version,confidence,pokemon_species!inner(dex_number,slug),pokemon_form_types(slot,type_id,pokemon_types(names)),pokemon_go_stats(attack,defense,stamina,max_cp)",
+    )
+    .order("species_id")
+    .order("is_default", { ascending: false })
+    .limit(100);
+
+  if (dexNumber !== undefined) {
+    request = request.eq("pokemon_species.dex_number", dexNumber);
+  }
+
+  if (query.trim()) {
+    const pattern = `%${query.trim().toLowerCase()}%`;
+    request = request.or(`slug.ilike.${pattern},pokemon_species.slug.ilike.${pattern}`);
+  }
+
+  const { data, error } = await request;
+  if (error) throw error;
+
+  return (data ?? []).map(mapRow);
+}
+
+export async function getGoPokemonCore(
+  query = "",
+  dexNumber?: number,
+): Promise<GoPokemonCoreResult> {
+  const key = cacheKey(query, dexNumber);
+  const cached = await readPersistentCache<GoPokemonCore[]>(key);
+
+  if (cached && isCacheFresh(cached.cachedAt, CACHE_TTL_MS)) {
+    return { data: cached.value, status: "cached", cachedAt: cached.cachedAt };
+  }
+
+  try {
+    const data = await fetchCore(query, dexNumber);
+    const cachedAt = new Date().toISOString();
+    await writePersistentCache(key, data);
+    return { data, status: "fresh", cachedAt };
+  } catch (error) {
+    if (cached) return { data: cached.value, status: "offline", cachedAt: cached.cachedAt };
+    if (supabase) throw error;
+    return { data: [], status: "unavailable", cachedAt: new Date(0).toISOString() };
+  }
+}
+
+export async function getGoPokemonForm(
+  formSlug: string,
+): Promise<GoPokemonCore | null> {
+  const result = await getGoPokemonCore(formSlug);
+  return result.data.find((form) => form.formSlug === formSlug.trim().toLowerCase()) ?? null;
+}
