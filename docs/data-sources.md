@@ -18,12 +18,30 @@ O cadastro de uma fonte **não significa** que ela já esteja integrada ou que s
 |---|---|---|
 | PokéAPI | Catálogo geral da franquia | Identidade, espécies e dados não específicos de Pokémon GO. Não usar como fonte de stats/movesets GO. |
 | PokeMiners Game Master | Game Master e assets | Candidata para atributos, formas e movimentos presentes nos arquivos do jogo. Exigir versão/hash e data do arquivo. O próprio projeto alerta que campos ofuscados podem estar incorretamente identificados e que o conteúdo é para fins educacionais. |
-| Pokébattler | Simulações PvE e raids | Candidato para simulações/counters. Guardar parâmetros (boss, nível, clima, estratégia, moveset etc.). API comunitária sem SLA publicado; exige cache agressivo e atribuição. Plano: [integração PvE](./pve-integration-plan.md). |
+| Pokébattler | Catálogo GO, movimentos, simulações PvE/raids, Rocket e rankings | API HTTP pública documentada em [Developers](https://www.pokebattler.com/developers/): `/pokemon`, `/moves`, `/raids`, `/rocket`, counters por chefe e rankings. Dados de simulação são estimativas; cache agressivo, `User-Agent` descritivo e atribuição são obrigatórios. Rankings gerais são computacionalmente caros. Manter desabilitado até validar termos, payloads reais, schema e fixtures. Plano: [integração PvE](./pve-integration-plan.md). |
 | PvPoke | PvP / GO Battle League | Código aberto sob licença MIT; rankings são gerados por simulações 1 vs 1. Guardar regras, versão e data. Simulação não representa todas as decisões dinâmicas de uma batalha real. Nunca reutilizar ranking PvP como PvE. |
 | Leek Duck | Eventos, calendário e rotações | Candidato para eventos. Guardar URL do evento, horário/fuso e momento da verificação. Confirmar anúncios com canais oficiais quando possível. |
 | Pokémon GO Hub | Database e ferramentas comunitárias | Fonte secundária/agregadora. Registrar metodologia e créditos do conjunto específico utilizado. |
 | Pokémon GO API (community) | JSON de Pokédex e algumas rotações | API agregadora baseada em Game Master e feeds comunitários. Raids/Max Battles/quests podem vir de fontes distintas; verificar origem por endpoint. O projeto declara uso educacional e direitos de terceiros sobre os dados do jogo. |
 | pogo-db-api (S-Tier-Devs) | Estimativas PvE, counters, raids e eventos | Fonte comunitária derivada de Game Master e feeds como Leek Duck. DPS/TDO/ER são calculados pelo projeto sob hipóteses próprias; não equivalem a simulação completa. Avaliação: [pogo-db-api](./pogo-db-api-evaluation.md). Manter desabilitada até validar fixtures, frescor, licença e direitos dos dados upstream. |
+
+
+### Avaliação técnica do Pokébattler
+
+A referência oficial de desenvolvedor documenta a API HTTP em `https://fight.pokebattler.com`. Os endpoints públicos listados são GET/JSON e não exigem autenticação:
+
+- `/pokemon`: Pokédex GO com stats base, tipos e movesets disponíveis (aprox. 7 MB).
+- `/moves`: golpes rápidos e carregados, com poder, energia e duração.
+- `/raids`: rotação atual e raids anunciadas.
+- `/rocket`: lineups atuais da Equipe GO Rocket.
+- `/raids/defenders/...`: counters pré-simulados para um chefe e parâmetros específicos.
+- `/rankings/...`: rankings gerais calculados sob demanda; podem expirar por timeout sob carga.
+
+A documentação oficial informa que os resultados são simulados e mudam quando stats, movesets ou rotação mudam. O campo `Estimator` representa estimativa de treinadores necessários para vencer, não DPS nem nota percentual. Equipes de raid têm seis Pokémon; Max Battles usam três e métricas/roles distintas; Rocket usa mecânicas próprias. Não misturar esses domínios.
+
+**Regras de consumo:** cache agressivo; não varrer combinações de atacante × defensor × moveset; enviar `User-Agent` descritivo; atribuir Pokébattler em resultados derivados publicados. A documentação alerta que carga automatizada sustentada pode sofrer rate limit e recomenda contato para uso acima de consultas ocasionais.
+
+**Estado da validação:** documentação identificada, mas nenhum payload real foi capturado e validado pelo projeto nesta etapa. Não criar fixtures a partir de exemplos textuais, não inferir schema completo e não habilitar o provedor. Antes da integração, obter autorização/clareza de uso para o caso do PokéLab, capturar respostas reais de baixa frequência para `/moves` e `/pokemon`, preservar amostras brutas versionadas e testar parsing, campos ausentes, alterações e atribuição. A API documentada não deve ser tratada como SLA nem como garantia de frescor upstream.
 
 ## Estado da integração
 - PokéAPI: integração existente para catálogo geral.
