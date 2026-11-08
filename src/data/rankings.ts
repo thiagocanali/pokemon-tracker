@@ -42,7 +42,7 @@ export async function getBattleRankings(
   const cached = await readPersistentCache<BattleRanking[]>(key);
 
   if (cached && isCacheFresh(cached.cachedAt, CACHE_TTL_MS)) {
-    return { data: cached.value, status: "cached", cachedAt: cached.cachedAt, sourceFreshness: getSourceFreshness(cached.value, SOURCE_FRESHNESS_MAX_AGE_MS) };
+    return { data: cached.value, status: "cached", cachedAt: cached.cachedAt, sourceFreshness: getSourceFreshness(cached.value.map((row) => ({ collected_at: row.collected_at, source_updated_at: null })), SOURCE_FRESHNESS_MAX_AGE_MS) };
   }
 
   if (supabase) {
@@ -62,7 +62,7 @@ export async function getBattleRankings(
       const rows = (data ?? []) as unknown as BattleRanking[];
       const cachedAt = new Date().toISOString();
       await writePersistentCache(key, rows);
-      return { data: rows, status: "fresh", cachedAt, sourceFreshness: getSourceFreshness(rows, SOURCE_FRESHNESS_MAX_AGE_MS) };
+      return { data: rows, status: "fresh", cachedAt, sourceFreshness: getSourceFreshness(rows.map((row) => ({ collected_at: row.collected_at, source_updated_at: null })), SOURCE_FRESHNESS_MAX_AGE_MS) };
     } catch (error) {
       if (cached) return { data: cached.value, status: "offline", cachedAt: cached.cachedAt, sourceFreshness: getSourceFreshness(cached.value, SOURCE_FRESHNESS_MAX_AGE_MS) };
       throw error;
