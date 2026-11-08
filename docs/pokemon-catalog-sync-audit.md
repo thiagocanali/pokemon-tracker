@@ -55,11 +55,11 @@ Cada item é processado sequencialmente, com duas leituras adicionais e uma grav
 
 ### 2. Semântica de versão upstream — prioridade média
 
-O valor `pokeapi-v2` identifica a API utilizada, não uma revisão do dataset nem uma versão individual do recurso. A coleta tem timestamp, mas a função não recebe uma data upstream de atualização.
+O valor `pokeapi-v2` identifica a versão da API/contrato consultado, não uma revisão do dataset nem uma versão individual do recurso. `collected_at` registra a coleta local; `source_updated_at` permanece NULL porque o fluxo atual não recebe uma data upstream confiável. `data_snapshots.version` usa o timestamp de captura para identificar snapshots internos, não uma revisão upstream.
 
-**Risco:** consumidores podem interpretar `data_version` como versão do conteúdo.
+**Risco:** consumidores podem interpretar `data_version` ou `data_snapshots.version` como versão do conteúdo publicado pela fonte.
 
-**Próxima ação:** documentar `data_version` como versão do contrato/API enquanto não houver versão upstream real; usar hash do payload para deduplicação/comparação de conteúdo se isso for necessário. Não preencher `source_updated_at` com `collected_at`.
+**Ação:** semântica documentada em `docs/data-sources.md`. Usar hash apenas como identificador de conteúdo observado, com escopo explícito, nunca como data ou versão oficial da fonte. Não preencher `source_updated_at` com `collected_at`.
 
 ### 3. Histórico de alterações de primeiro nível — prioridade baixa/média
 
@@ -93,7 +93,7 @@ A migration `202611050001` compara propriedades de primeiro nível do snapshot a
 
 ## Próxima ordem recomendada
 
-1. Documentar formalmente o significado de `data_version`.
-2. Só então avaliar otimização de concorrência do lote.
+1. Medir duração real de lotes antes de avaliar otimização de concorrência.
+2. Manter `data_version`, `source_updated_at` e `data_snapshots.version` distintos conforme a política em `docs/data-sources.md`.
 
 **Decisão:** manter a integração PokéAPI restrita ao catálogo geral. Não ativar fontes de Pokémon GO nem usar PokéAPI para preencher dados de batalha. A próxima implementação deve priorizar a cobertura de concorrência multi-sessão e retry resiliente, sempre em ambiente local/descartável e sem tocar no Supabase remoto.

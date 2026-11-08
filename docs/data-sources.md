@@ -6,7 +6,7 @@ O cadastro de uma fonte **não significa** que ela já esteja integrada ou que s
 1. Não publicar um valor de jogo sem registrar fonte e momento da coleta.
 2. Não misturar domínios: PvP, PvE/raids, eventos, Game Master e catálogo geral são conjuntos diferentes.
 3. Preservar URL específica do registro/documento sempre que disponível; a página inicial do provedor não substitui a origem do dado.
-4. Registrar versão, data de publicação/atualização da fonte quando disponível e data de coleta.
+4. Distinguir versão declarada pela fonte, atualização upstream e momento da coleta; nunca inferir uma data upstream a partir da coleta.
 5. Exibir estimativas como estimativas. Simulação, ranking e dado extraído do Game Master não são equivalentes.
 6. Em conflito, não escolher silenciosamente um valor. Marcar divergência e validar antes de substituir o dado anterior.
 7. Não fazer scraping nem consumir endpoints privados sem verificar termos, permissões, limites e estabilidade. Preferir APIs/documentação públicas e métodos autorizados.
@@ -31,10 +31,35 @@ O cadastro de uma fonte **não significa** que ela já esteja integrada ou que s
 - Não apresentar candidatos como fontes sincronizadas.
 - Antes de habilitar um provedor, implementar adaptador isolado, validação de schema, testes com fixtures versionadas, detecção de alterações e tratamento de falhas/limites.
 
+## Semântica de versão e proveniência
+
+Os campos de versão e tempo não são intercambiáveis:
+
+| Campo | Significado | Regra |
+|---|---|---|
+| `collected_at` | Momento em que o PokéLab consultou e armazenou o dado | Sempre representa a coleta local; não é data de publicação nem atualização upstream. |
+| `source_updated_at` | Momento em que a própria fonte publicou ou atualizou aquele conteúdo | Preencher somente quando a fonte fornecer uma data confiável e vinculada ao registro/conjunto. Caso contrário, manter `NULL`. |
+| `data_version` | Identificador declarado da versão do conjunto, arquivo, release ou contrato/API usado | Registrar o significado no adaptador/documentação. Não chamar uma versão de API de revisão do dataset. |
+| `data_snapshots.version` | Identificador da captura armazenada para uma entidade | É a chave de versão do snapshot interno; não deve ser interpretada automaticamente como versão upstream. |
+
+### Regra específica da PokéAPI
+
+A integração atual grava `data_version = "pokeapi-v2"`. Esse valor identifica a versão da API/contrato consultado, não uma revisão do catálogo de dados nem a versão de cada recurso Pokémon. A PokéAPI não fornece, no fluxo atual, uma data confiável de última atualização para cada registro; por isso `source_updated_at` permanece ausente. O `collected_at` registra quando a função fez a coleta.
+
+No fluxo atual, `data_snapshots.version` recebe o timestamp de captura (`collectedAt`) para distinguir capturas sucessivas do mesmo Pokémon. Ele não substitui `data_version` nem comprova que o conteúdo upstream mudou.
+
+### Hashes e arquivos versionados
+
+- Preferir o identificador de release/commit/data file fornecido pela fonte quando existir.
+- Para arquivos imutáveis sem versão publicada, pode-se registrar hash criptográfico do conteúdo bruto e o escopo do hash (arquivo completo, endpoint ou registro).
+- Hash identifica conteúdo observado; não informa quando a fonte o publicou.
+- Não calcular um hash de um payload normalizado e apresentá-lo como versão oficial da fonte.
+- Quando versão upstream não estiver disponível, registrar explicitamente essa limitação em vez de inventar um número ou data.
+
 ## Metadados mínimos por registro
 - source_id e source_url;
-- collected_at e, quando disponível, source_updated_at;
-- data_version ou hash/identificador do arquivo de origem;
+- collected_at e, somente quando comprovado pela fonte, source_updated_at;
+- data_version com semântica documentada, ou hash com escopo declarado;
 - domínio/contexto (PvE, PvP, eventos etc.);
 - parâmetros de cálculo/simulação quando aplicável;
 - confidence somente quando houver metodologia documentada.
