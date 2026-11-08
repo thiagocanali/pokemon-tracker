@@ -158,3 +158,45 @@ Nesta rodada, as tentativas de abrir diretamente `charged_moves.json`, `pvp_fast
 Referências dos payloads observados:
 - [Shiny Pokémon](https://pogoapi.net/api/v1/shiny_pokemon.json)
 - [Evoluções](https://pogoapi.net/api/v1/pokemon_evolutions.json)
+
+
+## Contratos documentados de movimentos e compatibilidade (2026-11-08)
+
+Esta seção registra o contrato descrito na [documentação pública da PoGoAPI](https://pogoapi.net/documentation/). **Os campos abaixo são contratos documentados, não payloads integralmente inspecionados nesta auditoria.** Não usar esta descrição como substituta de fixtures capturadas e validadas antes de implementar parsers de produção.
+
+### Moves PvE
+
+A documentação descreve `charged_moves.json` como uma lista de movimentos carregados com campos como `name`, `type`, `power`, `duration` e `energy_delta`. Também documenta campos opcionais, incluindo `critical_chance` e `heal_scalar`. A presença, nulabilidade e semântica exata de cada campo devem ser confirmadas em amostras reais antes de fixar o schema runtime.
+
+`fast_moves.json` já teve seu corpo inspecionado diretamente nesta avaliação; nele foram observados `move_id`, `name`, `type`, `power`, `energy_delta`, `duration` e `stamina_loss_scaler`.
+
+### Moves PvP — domínio separado
+
+A documentação descreve `pvp_fast_moves.json` com `move_id`, `name`, `type`, `power`, `energy_delta` e `turn_duration`.
+
+`pvp_charged_moves.json` documenta campos básicos equivalentes e um campo opcional `buffs`. A estrutura de buffs inclui `activation_chance` e alterações opcionais de estágios de atributos, como `target_defense_stat_stage_change`, `attacker_attack_stat_stage_change`, `target_attack_stat_stage_change` e `attacker_defense_stat_stage_change`.
+
+Não converter `turn_duration` em `duration` nem misturar esses registros com movimentos PvE. Buffs/debuffs devem permanecer estruturados e opcionais; ausência do campo não equivale a um efeito neutro explicitamente observado.
+
+### Compatibilidade por Pokémon e formas
+
+A documentação descreve `current_pokemon_moves.json` como registros por Pokémon com `pokemon_id`, `pokemon_name` e forma opcional (`form`), acompanhados de listas separadas de `fast_moves`, `charged_moves`, `elite_fast_moves` e `elite_charged_moves`. As listas Elite/legacy não devem ser fundidas com o conjunto normalmente disponível: preservar a distinção no modelo e na interface.
+
+`pokemon_forms.json` é descrito como uma lista de strings de nomes de formas. Essa lista pode auxiliar a validação de rótulos, mas não constitui por si só um mapeamento canônico entre forma, espécie e variante interna. A chave composta `pokemon_id + form` observada em stats continua necessária, com tratamento explícito de forma ausente e normalização revisável.
+
+### Estado da evidência
+
+| Arquivo | Estado nesta auditoria |
+|---|---|
+| `fast_moves.json` | Corpo JSON inspecionado diretamente |
+| `charged_moves.json` | Contrato documentado; corpo não validado nesta auditoria |
+| `pvp_fast_moves.json` | Contrato documentado; corpo não validado nesta auditoria |
+| `pvp_charged_moves.json` | Contrato documentado; corpo não validado nesta auditoria |
+| `current_pokemon_moves.json` | Contrato documentado; corpo não validado nesta auditoria |
+| `pokemon_forms.json` | Contrato documentado; corpo não validado nesta auditoria |
+
+### Próxima condição técnica
+
+Antes de ativar qualquer domínio de movimentos: capturar payloads reais com hash SHA-256 e horário de coleta; construir fixtures pequenas que cubram campos opcionais, listas vazias, movimentos Elite/legacy, formas ausentes e buffs; validar IDs e referências cruzadas; e manter PvE/PvP em schemas e serviços separados. A documentação da fonte não substitui revisão de direitos, atribuição e proveniência descrita acima.
+
+Nenhum parser, fixture de dados do jogo, adaptador, ingestão ou alteração Supabase foi criado nesta etapa. PoGoAPI permanece desabilitada como fonte de runtime.
