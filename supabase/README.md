@@ -30,6 +30,8 @@ curl -X POST "https://YOUR_PROJECT_REF.supabase.co/functions/v1/sync-pokemon-cat
 
 Continue with the returned `nextOffset` until it is `null`. Use a modest batch size (20 is the default) and do not run overlapping catalog syncs. The function imports default PokéAPI Pokémon entries; it does not claim to import Pokémon GO stats, movesets, raids, events, or PvP/PvE rankings.
 
+For this integration, `data_version = "pokeapi-v2"` identifies the API/contract version, not a revision of the upstream catalog. `collected_at` is the local fetch time. `source_updated_at` is left null because this flow has no authoritative upstream update timestamp. `data_snapshots.version` uses the capture timestamp as an internal snapshot identifier and must not be read as an upstream dataset version. See [the source-data policy](../docs/data-sources.md#semântica-de-versão-e-proveniência) for the full rules.
+
 Apply migrations before deploying:
 
 ```sh
