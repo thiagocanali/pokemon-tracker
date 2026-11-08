@@ -22,8 +22,10 @@ export type SourceFreshness = {
 };
 
 export type SourceFreshnessRecord = {
-  collected_at: string | null;
-  source_updated_at: string | null;
+  collected_at?: string | null;
+  source_updated_at?: string | null;
+  collectedAt?: string | null;
+  sourceUpdatedAt?: string | null;
 };
 
 export function getSourceFreshness(
@@ -36,14 +38,14 @@ export function getSourceFreshness(
   }
 
   const collectedTimestamps = records
-    .map((record) => Date.parse(record.collected_at ?? ""))
+    .map((record) => Date.parse(record.collected_at ?? record.collectedAt ?? ""))
     .filter(Number.isFinite);
   const latestCollectedAt = collectedTimestamps.length
     ? new Date(Math.max(...collectedTimestamps)).toISOString()
     : null;
 
   const sourceTimestamps = records.map((record) =>
-    record.source_updated_at ? Date.parse(record.source_updated_at) : NaN
+    (record.source_updated_at ?? record.sourceUpdatedAt) ? Date.parse((record.source_updated_at ?? record.sourceUpdatedAt)!) : NaN
   );
 
   if (sourceTimestamps.some((timestamp) => !Number.isFinite(timestamp))) {
