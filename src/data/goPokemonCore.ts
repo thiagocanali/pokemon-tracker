@@ -19,6 +19,14 @@ export type GoPokemonCore = {
     defense: number;
     stamina: number;
     maxCp: number | null;
+    provenance: {
+      sourceId: string;
+      sourceUrl: string;
+      collectedAt: string;
+      sourceUpdatedAt: string | null;
+      dataVersion: string | null;
+      confidence: number | null;
+    };
   } | null;
   provenance: {
     sourceId: string;
@@ -66,6 +74,14 @@ function mapRow(row: any): GoPokemonCore {
           defense: row.pokemon_go_stats.defense,
           stamina: row.pokemon_go_stats.stamina,
           maxCp: row.pokemon_go_stats.max_cp,
+          provenance: {
+            sourceId: row.pokemon_go_stats.source_id,
+            sourceUrl: row.pokemon_go_stats.source_url,
+            collectedAt: row.pokemon_go_stats.collected_at,
+            sourceUpdatedAt: row.pokemon_go_stats.source_updated_at,
+            dataVersion: row.pokemon_go_stats.data_version,
+            confidence: row.pokemon_go_stats.confidence,
+          },
         }
       : null,
     provenance: {
@@ -85,7 +101,7 @@ function createCoreQuery() {
   return supabase
     .from("pokemon_forms")
     .select(
-      "id,species_id,slug,names,variant,is_default,availability,source_id,source_url,collected_at,source_updated_at,data_version,confidence,pokemon_species!inner(dex_number,slug),pokemon_form_types(slot,type_id,pokemon_types(names)),pokemon_go_stats(attack,defense,stamina,max_cp)",
+      "id,species_id,slug,names,variant,is_default,availability,source_id,source_url,collected_at,source_updated_at,data_version,confidence,pokemon_species!inner(dex_number,slug),pokemon_form_types(slot,type_id,pokemon_types(names)),pokemon_go_stats(attack,defense,stamina,max_cp,source_id,source_url,collected_at,source_updated_at,data_version,confidence)",
     )
     .order("species_id")
     .order("is_default", { ascending: false })
