@@ -1,10 +1,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { parseSyncPagination } from "./validation.ts";
+import {
+  parsePokemonList,
+  parsePokemonResource,
+  parsePokemonSpeciesResource,
+  parseSyncPagination,
+  unwrapValidation,
+} from "./validation.ts";
 
 const API_BASE = "https://pokeapi.co/api/v2";
 const SOURCE_ID = "pokeapi";
-const MAX_BATCH_SIZE = 25;
-
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 300;
 const RETRYABLE_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -43,23 +47,6 @@ async function rpcWithRetry<T>(
   }
 }
 
-
-type PokemonList = { count: number; results: { name: string; url: string }[] };
-type Pokemon = {
-  id: number; name: string; height: number; weight: number;
-  sprites: Record<string, unknown>;
-  types: { slot: number; type: { name: string } }[];
-  stats: { base_stat: number; stat: { name: string } }[];
-  abilities: unknown[]; moves: unknown[];
-  species: { name: string; url: string };
-};
-type Species = {
-  id: number; name: string;
-  names: { language: { name: string }; name: string }[];
-  genera: { genus: string; language: { name: string } }[];
-  flavor_text_entries: { flavor_text: string; language: { name: string } }[];
-  generation: { name: string } | null;
-};
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -111,16 +98,16 @@ Deno.serve(async (request) => {
   try {
     const listResponse = await fetchWithRetry(`${API_BASE}/pokemon?limit=${limit}&offset=${offset}`);
     if (!listResponse.ok) throw new Error(`PokéAPI catalog returned HTTP ${listResponse.status}`);
-    const catalog = (await listResponse.json()) as PokemonList;
+    const catalog = unwrapValidation(parsePokemonList(await listResponse.json()));
     const collectedAt = new Date().toISOString();
 
     for (const entry of catalog.results) {
       const pokemonResponse = await fetchWithRetry(entry.url);
       if (!pokemonResponse.ok) throw new Error(`Failed to fetch ${entry.name}: HTTP ${pokemonResponse.status}`);
-      const pokemon = (await pokemonResponse.json()) as Pokemon;
+      const pokemon = unwrapValidation(parsePokemonResource(await pokemonResponse.json(), entry));
       const speciesResponse = await fetchWithRetry(pokemon.species.url);
       if (!speciesResponse.ok) throw new Error(`Failed to fetch species for ${entry.name}: HTTP ${speciesResponse.status}`);
-      const species = (await speciesResponse.json()) as Species;
+      const species = unwrapValidation(parsePokemonSpeciesResource(await speciesResponse.json(), pokemon.species));
       recordsRead += 1;
 
       const speciesId = `species-${species.id}`;
