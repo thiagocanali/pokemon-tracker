@@ -12,7 +12,7 @@ A integração continua restrita ao catálogo geral da franquia. Ela não fornec
 
 A validação runtime agora cobre listagem, recursos Pokémon e espécies, incluindo URLs, identidade entre recursos, tipos e campos localizados. O CI também aplica todas as migrations em um PostgreSQL descartável e exercita as RPCs de catálogo com testes transacionais.
 
-**Conclusão:** os riscos de consistência e validação básica foram reduzidos e agora são verificados automaticamente. Permanecem pendentes retry com `Retry-After`/jitter, teste de concorrência entre sessões PostgreSQL e semântica de versão upstream.
+**Conclusão:** os riscos de consistência e validação básica foram reduzidos e agora são verificados automaticamente. Permanecem pendentes retry com `Retry-After`/jitter e semântica de versão upstream. A concorrência entre sessões PostgreSQL agora é exercitada no CI descartável.
 
 ## Fluxo atual observado
 
@@ -41,7 +41,7 @@ A validação runtime agora cobre listagem, recursos Pokémon e espécies, inclu
 | Versão e proveniência upstream incompletas | Ainda pendente | `data_version` recebe o identificador estático `pokeapi-v2`; `source_updated_at` não é fornecido pela função |
 | Histórico de alterações limitado | Parcialmente implementado | A RPC registra diferenças de primeiro nível no payload de Pokémon; não cobre outros domínios nem diffs aninhados |
 | Contagem de saúde confundia erro com zero | Corrigido no contrato do frontend | `health.ts` distingue `available`, `not-tracked` e `error`; a contagem continua implementada apenas para PokéAPI |
-| RPCs sem testes de integração SQL | Parcialmente corrigido | CI aplica migrations em PostgreSQL 16 descartável e testa rollback, tipos, stale writes, changes e finalização; concorrência multi-sessão ainda não é testada |
+| RPCs sem testes de integração SQL | Corrigido para o fluxo de catálogo | CI aplica migrations em PostgreSQL 16 descartável e testa rollback, tipos, stale writes, changes, finalização e concorrência multi-sessão |
 
 ## Achados técnicos remanescentes
 
@@ -77,18 +77,12 @@ A migration `202611050001` compara propriedades de primeiro nível do snapshot a
 
 **Próxima ação:** manter o escopo explícito; avaliar diff por JSON path apenas se uma tela de histórico realmente precisar dessa granularidade.
 
-### 5. Cobertura de concorrência entre sessões — prioridade média
-
-Os testes PostgreSQL agora cobrem transação, rollback, reconciliação de tipos, detecção de mudanças, rejeição de timestamps antigos e finalização idempotente/conflitante. Ainda não simulam duas sessões concorrentes tentando gravar a mesma espécie/snapshot.
-
-**Próxima ação:** adicionar um teste de integração multi-sessão que confirme a serialização pelos advisory locks e que uma gravação antiga não vença uma nova. O teste deve continuar restrito ao PostgreSQL descartável do CI.
-
 ## O que está correto ou foi confirmado
 
 - A Edge Function exige segredo e usa service role apenas no servidor.
 - A paginação é limitada e validada antes de iniciar a execução.
 - Os payloads da PokéAPI são validados em runtime antes de persistir.
-- O CI executa fixtures Deno e testes das RPCs em PostgreSQL 16 descartável.
+- O CI executa fixtures Deno e testes das RPCs em PostgreSQL 16 descartável, incluindo duas sessões concorrentes e rejeição da gravação antiga.
 - A identidade de recurso/formulário permanece separada da identidade de espécie.
 - Cada registro é persistido por RPC transacional.
 - Tipos são substituídos como conjunto, evitando slots obsoletos.
@@ -107,9 +101,8 @@ Os testes PostgreSQL agora cobrem transação, rollback, reconciliação de tipo
 
 ## Próxima ordem recomendada
 
-1. Adicionar teste PostgreSQL multi-sessão para os advisory locks.
-2. Melhorar retry com `Retry-After` e jitter.
-3. Documentar formalmente o significado de `data_version`.
-4. Só então avaliar otimização de concorrência do lote.
+1. Melhorar retry com `Retry-After` e jitter.
+2. Documentar formalmente o significado de `data_version`.
+3. Só então avaliar otimização de concorrência do lote.
 
 **Decisão:** manter a integração PokéAPI restrita ao catálogo geral. Não ativar fontes de Pokémon GO nem usar PokéAPI para preencher dados de batalha. A próxima implementação deve priorizar a cobertura de concorrência multi-sessão e retry resiliente, sempre em ambiente local/descartável e sem tocar no Supabase remoto.
