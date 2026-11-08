@@ -64,6 +64,41 @@ Outras limitações:
 - A origem de cada arquivo pode variar; confirmar metodologia e proveniência por domínio antes de atribuir todos os dados diretamente ao Game Master.
 - A documentação contém descrições e exemplos que podem divergir do payload corrente; o parser deve ser baseado em amostras reais versionadas.
 
+## Auditoria do manifesto vivo (2026-11-08)
+
+A leitura direta de `https://pogoapi.net/api/v1/api_hashes.json` confirmou um manifesto JSON com **39 arquivos** e campos `api_filename`, `full_path`, `hash_md5`, `hash_sha1` e `hash_sha256`. O manifesto é uma fotografia do momento da consulta, não uma versão permanente da fonte.
+
+### Inventário por domínio
+
+- **Identidade, formas e disponibilidade:** `pokemon_names`, `pokemon_stats`, `pokemon_forms`, `pokemon_types`, `pokemon_generations`, `released_pokemon`, `alolan_pokemon`, `galarian_pokemon`, `shadow_pokemon`, `mega_pokemon`, `baby_pokemon`.
+- **Movimentos e compatibilidade:** `fast_moves`, `charged_moves`, `pvp_fast_moves`, `pvp_charged_moves`, `current_pokemon_moves`.
+- **PvP e recompensas:** `gobattle_league_rewards`, `gobattle_ranking_settings`, `pvp_exclusive_pokemon`.
+- **Raids:** `raid_bosses`, `raid_exclusive_pokemon`, `raid_settings`.
+- **Shiny e encontros:** `shiny_pokemon`, `time_limited_shiny_pokemon`, `photobomb_exclusive_pokemon`, `research_task_exclusive_pokemon`, `nesting_pokemon`, `possible_ditto_pokemon`, `pokemon_encounter_data`, `pokemon_rarity`.
+- **Mecânicas e progressão:** `cp_multiplier`, `pokemon_max_cp`, `pokemon_powerup_requirements`, `pokemon_candy_to_evolve`, `pokemon_evolutions`, `pokemon_buddy_distances`, `pokemon_height_weight_scale`, `pokemon_genders`, `pokemon_language_categories`, `player_xp_requirements`, `levelup_rewards`, `friendship_level_settings`, `mega_evolution_settings`, `type_effectiveness`, `weather_boosts`, `badges`, `community_days`.
+
+O manifesto amplia a cobertura potencial além de stats e movimentos, mas **não prova que todos os endpoints têm qualidade, atualização, licença ou semântica adequadas**. Eventos e rotações, por exemplo, precisam de validação temporal independente antes de aparecerem como atuais no app.
+
+### Hashes observados para os primeiros domínios
+
+| Arquivo | SHA-256 observado em 2026-11-08 |
+|---|---|
+| `pokemon_stats.json` | `5d5ac4679d0c9acc3d2ba0d0b520be18326ffc2bdb5fbc5dbc03848ca911ebd1` |
+| `fast_moves.json` | `68c034fe21d53aad75974993623a6e943a9b975ab6d39792d07e5f66cddfc43f` |
+| `charged_moves.json` | `102575f0bbb187cec9f1a8c4cd3c05995d77da90c770f0cc39af946bbfc94ffc` |
+| `current_pokemon_moves.json` | `661b6a7347b5000a862379888a3750625f8430bea3be54547f06491d8f4d4462` |
+| `pvp_fast_moves.json` | `0b3921f424d42adef758cfc5b249cab9f96dae420a9318cea5bdabb67d32877c` |
+| `pvp_charged_moves.json` | `dde3ebc9f45389dbdc1a58533ac627845b638c897b1a214807e22b07b4d7c46a` |
+
+Esses hashes são referências históricas da observação, não devem ser hardcoded como hashes esperados para sempre. O consumidor deverá consultar o manifesto e comparar com o hash previamente registrado.
+
+### O que a inspeção direta confirmou
+
+- `pokemon_stats.json` é uma lista de objetos com `pokemon_id`, `pokemon_name`, `form`, `base_attack`, `base_defense`, `base_stamina`. A amostra mostra múltiplas formas para o mesmo ID, reforçando a chave composta.
+- `fast_moves.json` é uma lista com `move_id`, `name`, `type`, `power`, `energy_delta`, `duration` e `stamina_loss_scaler`.
+- O manifesto enumera os arquivos de charged moves, compatibilidade e PvP, mas sua presença **não substitui a inspeção dos corpos JSON** desses endpoints.
+- A captura foi leitura pública pontual pelo navegador; nenhum dado foi gravado no repositório ou no Supabase.
+
 ## Adequação ao PokéLab
 
 | Domínio do produto | Adequação preliminar | Observação |
