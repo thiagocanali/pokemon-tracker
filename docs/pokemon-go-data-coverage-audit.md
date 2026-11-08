@@ -1,76 +1,84 @@
 # Auditoria de cobertura dos dados de Pokémon GO
 
-**Revisado em:** 2026-11-05  
-**Escopo:** migrations versionadas, adaptadores de ingestão, serviços de leitura/cache e páginas de consulta.  
-**Método:** inspeção estática do branch `main` após a integração do PR #43.  
-**Limitação:** não houve conexão ao Supabase remoto, consulta às tabelas de produção ou execução de sincronização. A existência de uma tabela ou serviço de leitura não prova que existam registros nela.
+**Revisado em:** 2026-11-08  
+**Escopo:** migrations versionadas, Edge Functions de ingestão, serviços de leitura/cache, proveniência e páginas de consulta.  
+**Método:** inspeção estática do branch `main` após os PRs #59–#66.  
+**Limitação:** não houve conexão ao Supabase remoto, consulta às tabelas de produção ou execução de sincronização. A existência de tabela, serviço ou tela não prova que existam registros válidos nela.
 
 ## Resumo executivo
 
-A infraestrutura de armazenamento e leitura está parcialmente preparada, mas a ingestão de dados específicos de Pokémon GO ainda não está implementada no repositório. O único pipeline de ingestão encontrado é `sync-pokemon-catalog`, que consome PokéAPI para catálogo geral da franquia.
+A infraestrutura de leitura GO evoluiu: existe agora um modelo canônico de leitura para espécies/formas/stats em `goPokemonCore.ts`; movimentos, rankings, eventos, temporadas e raids também têm serviços de leitura/cache. Os contratos de eventos/temporadas/raids já carregam metadados de proveniência, e a saúde das fontes distingue contagem disponível, não monitorada e erro.
 
-Os serviços `moves.ts`, `rankings.ts` e `goCatalog.ts` consultam tabelas Supabase e mantêm cache IndexedDB, mas não importam dados de provedores externos. Portanto, são camadas de leitura/cache, não pipelines de atualização.
+A ingestão de dados específicos de Pokémon GO continua ausente. O único pipeline encontrado é `sync-pokemon-catalog`, que consome PokéAPI para o catálogo geral da franquia. Não há adaptadores ativos para stats GO, movimentos, rankings, eventos ou raids.
 
-**Conclusão:** não habilitar nem anunciar dados GO como atualizados até implementar e validar adaptadores de ingestão apropriados.
+**Conclusão:** a leitura está mais estruturada, mas o banco ainda depende de ingestão externa que não foi implementada. Não habilitar provedores comunitários nem anunciar dados GO como atualizados até validar payloads, termos, proveniência e pipelines por domínio.
 
 ## Matriz de cobertura observada
 
 | Domínio | Estrutura no banco | Leitura no frontend | Ingestão no repositório | Situação |
 |---|---|---|---|---|
 | Catálogo geral / espécies / formas | `pokemon_species`, `pokemon_forms`, `pokemon_form_types`, `data_snapshots` | `service.ts` com Supabase, PokéAPI e cache local | `sync-pokemon-catalog` via PokéAPI | Implementado para catálogo geral; não é catálogo GO |
-| Stats de Pokémon GO | `pokemon_go_stats` | Nenhum serviço de leitura GO identificado nesta auditoria | Nenhum adaptador identificado | Estrutura sem pipeline comprovado |
+| Stats de Pokémon GO | `pokemon_go_stats` | `goPokemonCore.ts` consulta stats junto das formas e mapeia ataque/defesa/stamina/CP máximo | Nenhum adaptador GO identificado | Leitura implementada; ingestão ausente; proveniência específica dos stats ainda não é exposta no modelo |
 | Movimentos GO | `moves`, `pokemon_moves` | `moves.ts` e `MovesPage.vue` | Nenhum adaptador identificado | Leitura/cache; ingestão ausente |
 | Rankings PvE/PvP | `battle_rankings`, `battle_ranking_moves` | `rankings.ts` e `CountersPage.vue` | Nenhum adaptador identificado | Leitura/cache; ingestão ausente |
-| Eventos e temporadas | `events`, `seasons`, `event_forms` | `goCatalog.ts` e página de eventos | Nenhum adaptador identificado | Leitura/cache; ingestão ausente |
-| Rotações de raids | `raid_rotations`, `raid_rotation_bosses` | `goCatalog.ts` e página de raids | Nenhum adaptador identificado | Leitura/cache; ingestão ausente |
-| Evoluções | `evolutions` | Nenhum serviço GO identificado nesta auditoria | Nenhum adaptador identificado | Estrutura sem pipeline comprovado |
+| Eventos e temporadas | `events`, `seasons`, `event_forms` | `goCatalog.ts` e páginas de eventos | Nenhum adaptador identificado | Leitura/cache com source_id, source_url, collected_at, source_updated_at e data_version; ingestão ausente |
+| Rotações de raids | `raid_rotations`, `raid_rotation_bosses` | `goCatalog.ts` e página de raids | Nenhum adaptador identificado | Leitura/cache com proveniência; ingestão ausente |
+| Evoluções | `evolutions` | Nenhum serviço específico identificado nesta revisão | Nenhum adaptador identificado | Estrutura sem pipeline comprovado |
 | Alterações de catálogo | `data_changes` | Não foi identificada interface de histórico | RPC acionada pelo sync da PokéAPI | Implementado somente no fluxo do catálogo geral |
 
 ## Fontes cadastradas
 
-As migrations registram PokéMiners, Pokébattler, PvPoke, Leek Duck, Pokémon GO Hub e Pokémon GO API (community) como candidatas. As migrations explicitamente as deixam com `enabled = false` e `last_status = 'unavailable'`. O cadastro não é integração, e nenhuma delas deve ser apresentada como fonte sincronizada.
+As migrations registram PokéMiners, Pokébattler, PvPoke, Leek Duck, Pokémon GO Hub e Pokémon GO API (community) como candidatas desabilitadas. O cadastro não é integração e não prova que exista uma ingestão ativa. A PokéAPI permanece limitada ao catálogo geral e não deve preencher stats, movimentos, raids, eventos ou rankings de Pokémon GO.
 
-A PokéAPI permanece habilitada para catálogo geral, com limitação explícita no banco de que não fornece stats de combate, eventos, raids ou rankings específicos de Pokémon GO.
+As avaliações de Pokébattler e pogo-db-api permanecem documentais. Não há fixture JSON real capturada e validada no repositório que autorize ativar esses adaptadores.
 
-## Achados técnicos
+## Achados técnicos atualizados
 
 ### 1. Ingestão GO ausente — prioridade crítica
 
-No código versionado, a Edge Function de ingestão encontrada é `sync-pokemon-catalog`, que chama PokéAPI e grava espécies, formas, tipos e snapshots do catálogo geral. Não foram encontrados adaptadores de ingestão para as tabelas `pokemon_go_stats`, `moves`, `pokemon_moves`, `battle_rankings`, `events`, `seasons` ou `raid_rotations`.
+A Edge Function `sync-pokemon-catalog` grava espécies, formas, tipos e snapshots do catálogo geral. Não foram encontrados adaptadores de ingestão para `pokemon_go_stats`, `moves`, `pokemon_moves`, `battle_rankings`, `events`, `seasons` ou `raid_rotations`.
 
-**Ação:** criar adaptadores separados por domínio, com contratos baseados em payloads reais e fixtures versionadas. Não ativar fontes apenas alterando `enabled`.
+**Ação:** criar adaptadores isolados por domínio, com contratos derivados de payloads reais e fixtures versionadas. Não ativar fontes apenas alterando `enabled`.
 
-### 2. Serviços de movimentos e rankings são leitores — prioridade alta
+### 2. Cache freshness não representa source freshness — prioridade alta
 
-`src/data/moves.ts` e `src/data/rankings.ts` consultam o Supabase, gravam resultados no IndexedDB e retornam cache vencido em caso de falha. Não fazem coleta do provedor nem validam a idade dos registros do banco antes de chamá-los de `fresh`. O TTL atual limita a idade do cache do navegador, não a idade do dado de origem.
+`moves.ts`, `rankings.ts`, `goCatalog.ts` e `goPokemonCore.ts` usam TTL de cache IndexedDB. Quando uma consulta ao Supabase é bem-sucedida, os serviços registram uma nova hora local de cache e retornam status `fresh`. Isso significa que a leitura do banco ocorreu agora; não significa que o provedor atualizou os dados recentemente.
 
-**Ação:** separar `cache freshness` de `source freshness`; retornar e exibir `collected_at`, estado da fonte e validade por domínio. Uma resposta recém-consultada do banco não significa que o dado foi recentemente atualizado pelo provedor.
+Os serviços retornam cache vencido com status `offline` quando a consulta falha. A idade da origem precisa ser avaliada separadamente com `collected_at`, `source_updated_at`, saúde da fonte e política de validade específica do domínio.
 
-### 3. Eventos e raids não carregam proveniência suficiente no tipo de leitura — prioridade alta
+**Ação:** manter o status de transporte/cache separado do status de frescor da fonte. Não usar o timestamp local de cache para rotular dados upstream como atualizados.
 
-`goCatalog.ts` seleciona `source_url`, mas os tipos de eventos, temporadas e rotações não incluem `source_id`, `collected_at`, `source_updated_at` ou `data_version`. Assim, a camada que alimenta as páginas não consegue apresentar integralmente a proveniência já prevista no schema.
+### 3. Proveniência dos stats GO não é separada da proveniência da forma — prioridade alta
 
-**Ação:** ampliar os contratos e consultas para carregar a proveniência; mostrar fonte e momento da coleta nas telas. Manter fuso horário explícito para eventos.
+`goPokemonCore.ts` carrega a proveniência da linha `pokemon_forms`, mas a relação `pokemon_go_stats` seleciona atualmente apenas `attack`, `defense`, `stamina` e `max_cp`. O schema de `pokemon_go_stats` tem seus próprios `source_id`, `source_url`, `collected_at`, `source_updated_at`, `data_version` e `confidence`, que podem diferir da origem da identidade da forma.
 
-### 4. Saúde da fonte pode confundir falha com zero — prioridade média
+**Risco:** um consumidor pode atribuir aos stats a fonte e a data da forma, mesmo que os stats tenham sido obtidos de outro provedor ou em outro momento.
 
-`health.ts` conta registros apenas para PokéAPI. Para outras fontes retorna zero; se a consulta de contagem falha, também retorna zero. Isso mistura “não aplicável”, “sem registros” e “falha de consulta”.
+**Ação:** incluir proveniência própria dentro do objeto `stats` no modelo canônico e nos consumidores que exibirem esses valores. Não herdar silenciosamente a proveniência da forma.
 
-**Ação:** substituir `recordCount: number` por estado discriminado (por exemplo, contagem conhecida, não aplicável ou indisponível) e reportar erros sem convertê-los em zero.
+### 4. Contratos de proveniência variam entre domínios — prioridade média
 
-### 5. Confiança numérica no pipeline PokéAPI — prioridade média
+`moves.ts` carrega `source_id`, `source_url`, `collected_at`, `source_updated_at` e `data_version`. `goCatalog.ts` carrega esses metadados para eventos, temporadas e rotações. `rankings.ts` carrega origem, URL, coleta e versão, mas a tabela `battle_rankings` não possui atualmente `source_updated_at`.
 
-O pipeline envia `confidence: 1` para espécie e forma. O documento de política de fontes proíbe atribuir confiança numérica sem critérios documentados. A coleta direta da PokéAPI pode ser rastreável para identidade do catálogo, mas não equivale a confiança universal ou aplicável ao domínio GO.
+**Ação:** manter os contratos explícitos por tabela e não prometer um campo que o schema não oferece. Se uma fonte de ranking fornecer data upstream confiável e o produto precisar dela, planejar migration específica antes de mapear o campo.
 
-**Ação:** remover o valor arbitrário ou documentar um critério específico e limitado ao domínio. Não propagar esse valor para dados de batalha.
+### 5. Saúde da fonte — parcialmente corrigida
 
-### 6. Histórico de alterações tem escopo limitado — prioridade média
+`health.ts` agora usa `recordCount: number | null` e `recordCountStatus` com `available`, `not-tracked` ou `error`. Fontes que não têm contagem implementada não são mais apresentadas como zero, e falhas de consulta não são convertidas em zero.
 
-A RPC adicionada no PR #43 compara campos de primeiro nível do payload de snapshots da PokéAPI. Isso não cria histórico para movimentos, rankings, eventos ou raids, pois esses domínios ainda não possuem ingestão ligada à RPC.
+**Limitação:** a contagem continua monitorada apenas para PokéAPI; isso não confirma a presença ou frescor dos registros dos provedores GO.
+
+### 6. Confiança numérica arbitrária — corrigida no pipeline PokéAPI
+
+A Edge Function atual não envia `confidence: 1` para espécies ou formas. Como a coluna é opcional, a ausência resulta em `NULL`. Não propagar confiança para domínios GO sem critérios específicos e documentados.
+
+### 7. Histórico de alterações tem escopo limitado — prioridade média
+
+A RPC atual compara campos de primeiro nível dos snapshots do catálogo PokéAPI. Isso não cria histórico para movimentos, rankings, eventos ou raids, pois esses domínios ainda não possuem ingestão ligada ao mecanismo.
 
 **Ação:** reutilizar o mecanismo somente após definir identidade, versão e política de snapshot de cada domínio; não tratar o histórico atual como cobertura global.
 
-### 7. Cache local não substitui carga inicial — prioridade alta
+### 8. Cache local não substitui carga inicial — prioridade alta
 
 Os serviços criam cache após uma leitura bem-sucedida do Supabase. Não foi identificado bootstrap local completo dos dados GO nem fallback para um catálogo GO embarcado. Sem dados no banco e sem cache anterior, as páginas podem ficar vazias ou apresentar erro.
 
@@ -78,14 +86,15 @@ Os serviços criam cache após uma leitura bem-sucedida do Supabase. Não foi id
 
 ## Ordem recomendada de execução
 
-1. Corrigir semântica de saúde/proveniência e remover confiança arbitrária do catálogo.
-2. Definir contratos e fixtures reais para cada provedor GO, começando por movimentos e stats.
-3. Implementar adaptador servidor para catálogo de movimentos e compatibilidade por forma, com testes e reconciliação.
-4. Implementar stats GO a partir de fonte apropriada, mantendo formas e variantes com identidade inequívoca.
-5. Implementar eventos/temporadas e rotações de raid com horários, origem e coleta.
-6. Implementar rankings PvE e PvP como domínios distintos, registrando parâmetros, formato e versão.
-7. Criar bootstrap inicial, reconciliação, monitoramento e testes de falha/offline.
-8. Auditar o Game/Simulator antes de conectar dados novos; preservar suas mecânicas até que o mapeamento esteja completo.
+1. Separar proveniência dos stats GO da proveniência da forma no modelo canônico.
+2. Separar explicitamente status de cache/transporte e frescor da fonte nos serviços e interfaces.
+3. Definir contratos e fixtures reais para provedores GO, começando por movimentos e stats.
+4. Implementar ingestão server-side de movimentos e compatibilidade por forma, com testes e reconciliação.
+5. Implementar ingestão de stats GO a partir de fonte apropriada, mantendo formas e variantes com identidade inequívoca.
+6. Implementar eventos/temporadas e rotações de raid com horários, origem e coleta.
+7. Implementar rankings PvE e PvP como domínios distintos, registrando parâmetros, formato e versão.
+8. Criar bootstrap inicial, reconciliação, monitoramento e testes de falha/offline.
+9. Auditar o Game/Simulator antes de conectar dados novos; preservar suas mecânicas até que o mapeamento esteja completo.
 
 ## Critérios para ativar qualquer fonte GO
 
@@ -94,9 +103,9 @@ Os serviços criam cache após uma leitura bem-sucedida do Supabase. Não foi id
 - [ ] Fixture versionada e schema validado.
 - [ ] Testes para campos ausentes, payload inválido, resposta vazia, rate limit e indisponibilidade.
 - [ ] Idempotência e reconciliação de registros removidos/alterados.
-- [ ] Proveniência e semântica de versão definidas.
+- [ ] Proveniência e semântica de versão definidas por domínio.
 - [ ] Cache e validade da origem separados.
 - [ ] Teste de primeira carga e fallback offline.
 - [ ] Interface não apresenta dado vencido como atualizado.
 
-**Decisão:** manter todos os provedores comunitários GO desabilitados até que os critérios acima sejam atendidos. O próximo incremento de código deve corrigir proveniência e saúde antes de iniciar ingestão de dados de combate.
+**Decisão:** manter todos os provedores comunitários GO desabilitados até que os critérios acima sejam atendidos. O próximo incremento de código deve separar a proveniência dos stats GO da proveniência da forma e, em seguida, tratar frescor de origem sem confundi-lo com o TTL do cache local.
