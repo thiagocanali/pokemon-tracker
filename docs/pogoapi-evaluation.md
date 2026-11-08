@@ -66,7 +66,7 @@ Outras limitações:
 
 ## Auditoria do manifesto vivo (2026-11-08)
 
-A leitura direta de `https://pogoapi.net/api/v1/api_hashes.json` confirmou um manifesto JSON com **39 arquivos** e campos `api_filename`, `full_path`, `hash_md5`, `hash_sha1` e `hash_sha256`. O manifesto é uma fotografia do momento da consulta, não uma versão permanente da fonte.
+A leitura direta de `https://pogoapi.net/api/v1/api_hashes.json` confirmou um manifesto JSON com **47 arquivos** e campos `api_filename`, `full_path`, `hash_md5`, `hash_sha1` e `hash_sha256`. O manifesto é uma fotografia do momento da consulta, não uma versão permanente da fonte.
 
 ### Inventário por domínio
 
