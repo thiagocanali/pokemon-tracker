@@ -7,6 +7,7 @@ const seasons = ref<SeasonRow[]>([]);
 const loading = ref(true);
 const error = ref("");
 const notice = ref("");
+const sourceFreshnessStatus = ref<"fresh"|"stale"|"unknown">("unknown");
 const now = new Date();
 const upcomingEvents = computed(() => events.value.filter((event) => new Date(event.ends_at) >= now));
 const eventName = (event: EventRow) => event.names?.["pt-BR"] || event.names?.en || event.slug;
@@ -17,6 +18,8 @@ onMounted(async () => {
     const result = await getEventsAndSeasons(now);
     events.value = result.events.data;
     seasons.value = result.seasons.data;
+    const freshness = [result.events.sourceFreshness.status, result.seasons.sourceFreshness.status];
+    sourceFreshnessStatus.value = freshness.includes("stale") ? "stale" : freshness.includes("unknown") ? "unknown" : "fresh";
     if (result.events.status === "offline" || result.seasons.status === "offline") {
       notice.value = "Últimas informações conhecidas — não foi possível confirmar a programação atual.";
     }
@@ -35,10 +38,12 @@ onMounted(async () => {
       <RouterLink class="outline-button" to="/">Voltar ao dashboard</RouterLink>
     </section>
     <section class="event-hero surface-card">
-      <div class="hero-copy"><span class="live-pill">{{ loading ? "CONSULTANDO CALENDÁRIO" : notice ? "ÚLTIMO ESTADO CONHECIDO" : upcomingEvents.length ? "AGENDA ATUALIZADA" : "SEM EVENTOS CADASTRADOS" }}</span><h2>Calendário Pokémon GO</h2><p>Datas e descrições vêm do catálogo conectado; nenhuma programação é presumida.</p></div>
+      <div class="hero-copy"><span class="live-pill">{{ loading ? "CONSULTANDO CALENDÁRIO" : notice ? "ÚLTIMO ESTADO CONHECIDO" : sourceFreshnessStatus === "fresh" ? "FONTE RECENTE" : sourceFreshnessStatus === "stale" ? "FONTE POSSIVELMENTE DESATUALIZADA" : upcomingEvents.length ? "FONTE SEM DATA DE ATUALIZAÇÃO" : "SEM EVENTOS CADASTRADOS" }}</span><h2>Calendário Pokémon GO</h2><p>Datas e descrições vêm do catálogo conectado; nenhuma programação é presumida.</p></div>
       <div class="hero-metric"><strong>{{ upcomingEvents.length }}</strong><span>eventos catalogados</span></div>
     </section>
     <p v-if="notice" class="empty-events">{{ notice }}</p>
+    <p v-else-if="sourceFreshnessStatus === 'stale'" class="empty-events">Há registros cuja atualização upstream excede a política de 24 horas; a agenda não é tratada como recém-atualizada.</p>
+    <p v-else-if="sourceFreshnessStatus === 'unknown'" class="empty-events">A origem não informa timestamp upstream suficiente para confirmar o frescor da agenda.</p>
     <p v-if="loading" class="empty-events">Carregando calendário...</p><p v-else-if="error" class="empty-events">{{ error }}</p>
     <div v-else class="events-layout">
       <section class="event-list"><div class="section-title"><div><p class="eyebrow">AGENDA</p><h2>Eventos</h2></div></div>
