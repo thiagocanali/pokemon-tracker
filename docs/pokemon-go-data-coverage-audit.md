@@ -30,7 +30,7 @@ A ingestão de dados específicos de Pokémon GO continua ausente. O único pipe
 
 As migrations registram PokéMiners, Pokébattler, PvPoke, Leek Duck, Pokémon GO Hub e Pokémon GO API (community) como candidatas desabilitadas. O cadastro não é integração e não prova que exista uma ingestão ativa. A PokéAPI permanece limitada ao catálogo geral e não deve preencher stats, movimentos, raids, eventos ou rankings de Pokémon GO.
 
-As avaliações de Pokébattler e pogo-db-api permanecem documentais. Não há fixture JSON real capturada e validada no repositório que autorize ativar esses adaptadores.
+As avaliações de Pokébattler e pogo-db-api permanecem documentais. A revisão de PoGoAPI agora confirma payloads reais acessíveis de stats e fast moves e um manifesto de hashes, mas não adiciona fixtures de dados do jogo nem autoriza ativar o adaptador. Não há fixture JSON versionada e validada no repositório que autorize ativar qualquer adaptador GO.
 
 ## Achados técnicos atualizados
 
@@ -86,7 +86,7 @@ Os serviços criam cache após uma leitura bem-sucedida do Supabase. Não foi id
 
 ## Ordem recomendada de execução
 
-1. Definir contratos e fixtures reais para provedores GO, começando por movimentos e stats.
+1. Obter clareza de direitos/atribuição da PoGoAPI e, se autorizado, capturar fixtures reais versionadas para stats, formas e movimentos.
 2. Implementar ingestão server-side de movimentos e compatibilidade por forma, com testes e reconciliação.
 3. Implementar ingestão de stats GO a partir de fonte apropriada, mantendo formas e variantes com identidade inequívoca.
 4. Implementar eventos/temporadas e rotações de raid com horários, origem e coleta.
@@ -106,4 +106,4 @@ Os serviços criam cache após uma leitura bem-sucedida do Supabase. Não foi id
 - [ ] Teste de primeira carga e fallback offline.
 - [ ] Interface não apresenta dado vencido como atualizado.
 
-**Decisão:** manter todos os provedores comunitários GO desabilitados até que os critérios acima sejam atendidos. Proveniência independente dos stats e separação entre cache/source freshness já estão implementadas. O próximo incremento deve trabalhar com payloads reais e contratos de ingestão, sem ativar fontes por configuração isolada.
+**Decisão:** manter todos os provedores comunitários GO desabilitados até que os critérios acima sejam atendidos. A PoGoAPI é atualmente a candidata técnica prioritária para stats/forms e moves por oferecer payloads reais e manifesto SHA-256; a pendência de direitos/redistribuição continua bloqueando qualquer persistência ou publicação. Proveniência independente dos stats e separação entre cache/source freshness já estão implementadas. O próximo incremento deve trabalhar com payloads reais e contratos de ingestão, sem ativar fontes por configuração isolada.
