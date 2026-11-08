@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { fetchWithRetry, getRetryDelayMs } from "./retry.ts";
 import {
   parsePokemonList,
   parsePokemonResource,
@@ -10,24 +11,9 @@ import {
 const API_BASE = "https://pokeapi.co/api/v2";
 const SOURCE_ID = "pokeapi";
 const MAX_RETRIES = 3;
-const RETRY_BASE_DELAY_MS = 300;
-const RETRYABLE_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 function wait(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-async function fetchWithRetry(url: string): Promise<Response> {
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      const response = await fetch(url);
-      if (!RETRYABLE_HTTP_STATUSES.has(response.status) || attempt >= MAX_RETRIES) return response;
-      await response.body?.cancel();
-    } catch (error) {
-      if (attempt >= MAX_RETRIES) throw error;
-    }
-    await wait(RETRY_BASE_DELAY_MS * 2 ** attempt);
-  }
 }
 
 function isRetryableRpcError(error: { code?: string; message?: string }) {
@@ -43,7 +29,7 @@ async function rpcWithRetry<T>(
   for (let attempt = 0; ; attempt += 1) {
     const result = await operation();
     if (!result.error || !isRetryableRpcError(result.error) || attempt >= MAX_RETRIES) return result;
-    await wait(RETRY_BASE_DELAY_MS * 2 ** attempt);
+    await wait(getRetryDelayMs(attempt));
   }
 }
 

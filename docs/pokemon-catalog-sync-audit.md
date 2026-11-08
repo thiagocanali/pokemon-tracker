@@ -12,7 +12,7 @@ A integração continua restrita ao catálogo geral da franquia. Ela não fornec
 
 A validação runtime agora cobre listagem, recursos Pokémon e espécies, incluindo URLs, identidade entre recursos, tipos e campos localizados. O CI também aplica todas as migrations em um PostgreSQL descartável e exercita as RPCs de catálogo com testes transacionais.
 
-**Conclusão:** os riscos de consistência e validação básica foram reduzidos e agora são verificados automaticamente. Permanecem pendentes retry com `Retry-After`/jitter e semântica de versão upstream. A concorrência entre sessões PostgreSQL agora é exercitada no CI descartável.
+**Conclusão:** os riscos de consistência, validação e retry foram reduzidos e agora são verificados automaticamente. Permanece pendente esclarecer a semântica de versão upstream. A concorrência entre sessões PostgreSQL também é exercitada no CI descartável.
 
 ## Fluxo atual observado
 
@@ -33,7 +33,7 @@ A validação runtime agora cobre listagem, recursos Pokémon e espécies, inclu
 | Gravações por Pokémon não atômicas | Corrigido no código | `202611040001_atomic_pokemon_catalog_sync.sql`: uma RPC transacional grava espécie, forma, tipos e snapshot |
 | Finalização ignorava erros | Corrigido no código | A Edge Function verifica o erro da RPC de finalização; a RPC atualiza `sync_runs` e `data_sources` na mesma transação |
 | Tipos antigos permaneciam | Corrigido no código | A RPC apaga os tipos da forma e insere o conjunto recebido na mesma transação |
-| Ausência de retry | Parcialmente corrigido | Retry exponencial limitado para HTTP transitório e erros RPC transitórios; ainda não interpreta `Retry-After` nem adiciona jitter |
+| Ausência de retry | Corrigido no fluxo de catálogo | Retry limitado para HTTP transitório e erros RPC transitórios; HTTP respeita `Retry-After` em segundos/data HTTP, com espera máxima de 10 s e full jitter; RPC usa full jitter |
 | Entrada/paginação pouco validada | Corrigido | `validation.ts` rejeita JSON não-objeto, offset inválido e limite fora de 1–25 |
 | Concorrência poderia sobrescrever dados novos | Corrigido no código | Migration `202611050002` usa advisory locks e rejeita timestamps anteriores |
 | Confiança numérica arbitrária | Corrigido no payload atual | A Edge Function não envia `confidence: 1`; o banco recebe NULL quando ausente |
@@ -45,15 +45,7 @@ A validação runtime agora cobre listagem, recursos Pokémon e espécies, inclu
 
 ## Achados técnicos remanescentes
 
-### 1. Retry sem Retry-After e jitter — prioridade média
-
-O retry HTTP cobre 408, 425, 429 e alguns 5xx, com backoff exponencial determinístico. Não respeita o cabeçalho `Retry-After` e não adiciona jitter.
-
-**Risco:** execuções concorrentes podem repetir chamadas em sincronia e pressionar a fonte durante rate limiting.
-
-**Próxima ação:** interpretar `Retry-After` (segundos ou data HTTP), limitar espera máxima e adicionar jitter com função injetável/testável. Manter o número de tentativas limitado.
-
-### 2. Lote sequencial — prioridade média
+### 1. Lote sequencial — prioridade média
 
 Cada item é processado sequencialmente, com duas leituras adicionais e uma gravação RPC. Isso reduz concorrência e simplifica consistência, mas pode aumentar duração do lote.
 
@@ -61,7 +53,7 @@ Cada item é processado sequencialmente, com duas leituras adicionais e uma grav
 
 **Próxima ação:** medir duração real antes de otimizar. Se necessário, introduzir concorrência limitada e manter o lock/transação por registro.
 
-### 3. Semântica de versão upstream — prioridade média
+### 2. Semântica de versão upstream — prioridade média
 
 O valor `pokeapi-v2` identifica a API utilizada, não uma revisão do dataset nem uma versão individual do recurso. A coleta tem timestamp, mas a função não recebe uma data upstream de atualização.
 
@@ -69,7 +61,7 @@ O valor `pokeapi-v2` identifica a API utilizada, não uma revisão do dataset ne
 
 **Próxima ação:** documentar `data_version` como versão do contrato/API enquanto não houver versão upstream real; usar hash do payload para deduplicação/comparação de conteúdo se isso for necessário. Não preencher `source_updated_at` com `collected_at`.
 
-### 4. Histórico de alterações de primeiro nível — prioridade baixa/média
+### 3. Histórico de alterações de primeiro nível — prioridade baixa/média
 
 A migration `202611050001` compara propriedades de primeiro nível do snapshot anterior e atual. Não gera diff para caminhos aninhados e não representa mudanças em movimentos, eventos ou outros domínios.
 
@@ -82,7 +74,7 @@ A migration `202611050001` compara propriedades de primeiro nível do snapshot a
 - A Edge Function exige segredo e usa service role apenas no servidor.
 - A paginação é limitada e validada antes de iniciar a execução.
 - Os payloads da PokéAPI são validados em runtime antes de persistir.
-- O CI executa fixtures Deno e testes das RPCs em PostgreSQL 16 descartável, incluindo duas sessões concorrentes e rejeição da gravação antiga.
+- O CI executa fixtures Deno para validação de payloads e retry, além de testes das RPCs em PostgreSQL 16 descartável, incluindo duas sessões concorrentes e rejeição da gravação antiga.
 - A identidade de recurso/formulário permanece separada da identidade de espécie.
 - Cada registro é persistido por RPC transacional.
 - Tipos são substituídos como conjunto, evitando slots obsoletos.
@@ -101,8 +93,7 @@ A migration `202611050001` compara propriedades de primeiro nível do snapshot a
 
 ## Próxima ordem recomendada
 
-1. Melhorar retry com `Retry-After` e jitter.
-2. Documentar formalmente o significado de `data_version`.
-3. Só então avaliar otimização de concorrência do lote.
+1. Documentar formalmente o significado de `data_version`.
+2. Só então avaliar otimização de concorrência do lote.
 
 **Decisão:** manter a integração PokéAPI restrita ao catálogo geral. Não ativar fontes de Pokémon GO nem usar PokéAPI para preencher dados de batalha. A próxima implementação deve priorizar a cobertura de concorrência multi-sessão e retry resiliente, sempre em ambiente local/descartável e sem tocar no Supabase remoto.
