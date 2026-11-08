@@ -11,6 +11,21 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pokemon_tracker_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pokemon_tracker_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pokemon_tracker_test
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
@@ -30,3 +45,16 @@ jobs:
           deno-version: v2.x
       - name: Test catalog sync validation
         run: deno test --allow-net supabase/functions/sync-pokemon-catalog/validation_test.ts supabase/functions/cache-tests/freshness_test.ts supabase/functions/cache-tests/stale_pokemon_fallback_test.ts supabase/functions/cache-tests/provenance_test.ts supabase/functions/cache-tests/pokemon_identity_test.ts
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get install -y postgresql-client
+      - name: Bootstrap minimal Supabase auth roles
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql
+      - name: Apply migrations to disposable PostgreSQL
+        run: |
+          for migration in supabase/migrations/*.sql; do
+            echo "Applying $migration"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+          done
+      - name: Test catalog sync PostgreSQL transactions
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/catalog_sync_integration.sql
