@@ -246,3 +246,65 @@ Consequências:
 Antes de qualquer integração, capturar payloads reais completos com URL, horário e SHA-256; validar arrays/objetos, tiers numéricos e `mega`, formas, CPs, clima, shiny e datas; e criar fixtures que cubram rotação vazia, mudança de boss, sobreposição de ovos antigos, campos ausentes e eventos sem horário. Definir a política de expiração por domínio sem confundir cache recente com atualização da fonte.
 
 A PoGoAPI continua desabilitada. Nenhum parser, fixture de dados do jogo, ingestão, migration ou operação Supabase foi criado nesta etapa. A revisão de direitos, atribuição e redistribuição permanece bloqueadora.
+
+
+## Auditoria documental de mecânicas, tipagem e calculadoras (2026-11-08)
+
+Esta revisão amplia a avaliação para `type_effectiveness.json`, `weather_boosts.json`, `cp_multiplier.json` e `pokemon_max_cp.json`. A documentação pública descreve os quatro contratos, mas a evidência de payload varia por endpoint. A leitura direta de `type_effectiveness.json` e `cp_multiplier.json` foi possível nesta rodada; `weather_boosts.json` e `pokemon_max_cp.json` não retornaram corpo acessível pela ferramenta de inspeção. Não criar fixtures a partir de exemplos da documentação nem considerar exemplos documentados como captura do payload atual.
+
+### Efetividade de tipos — matriz direcional
+
+O corpo de `type_effectiveness.json` foi inspecionado diretamente. O payload observado é um objeto cujo primeiro nível usa o tipo do movimento atacante; cada chave interna representa o tipo defensor e seu valor é o multiplicador numérico. A matriz observada cobre 18 tipos atacantes e 18 tipos defensores.
+
+Valores observados incluem:
+- `1.6` para dano super efetivo;
+- `0.625` para dano pouco efetivo;
+- `0.390625` para combinações com dupla resistência.
+
+Regras para integração:
+- A direção é atacante → defensor; não inverter a matriz para derivar fraquezas sem explicitar a perspectiva.
+- A tabela observada é de interações entre tipos individuais. Para Pokémon com dois tipos defensores, o cálculo combinado deve multiplicar os dois fatores de forma explícita e cobrir casos de imunidade/resistência dupla conforme os valores da fonte.
+- Não tratar valores ausentes como `1` sem validação: um tipo ausente pode indicar payload incompleto ou mudança de contrato.
+- Manter o contexto Pokémon GO; não importar multiplicadores dos jogos principais.
+- Antes de usar em produção, validar conjunto de tipos, completude da matriz, valores numéricos finitos e regressões conhecidas, além de hash e timestamp de coleta.
+
+### Clima — contrato documentado, payload não inspecionado
+
+A documentação descreve `weather_boosts.json` como objeto indexado por condição climática, com uma lista de tipos impulsionados em cada condição. O corpo atual não foi obtido nesta rodada.
+
+Não assumir que o contrato documentado confirma a lista atual de climas ou bônus numéricos. O endpoint documenta quais tipos são impulsionados, não necessariamente o multiplicador de dano, nível de spawn ou todas as regras contextuais. Não derivar números de dano ou nível a partir da lista de tipos. Antes de integrar, capturar payload real e validar chaves de clima, arrays, tipos permitidos, duplicatas e comportamento para clima ausente/desconhecido.
+
+### CP multiplier — payload atual inspecionado, ressalvas de precisão
+
+O corpo de `cp_multiplier.json` foi inspecionado diretamente. É um array de registros `level` e `multiplier`, cobrindo níveis inteiros e meios níveis de 1 a 45 na resposta observada.
+
+A documentação da fonte informa que:
+- valores até nível 45 são definidos no GAME_MASTER para níveis inteiros;
+- meios níveis até 40 foram calculados por observação de CPs;
+- meios níveis entre 40 e 45 são aproximações por interpolação e podem não ser inteiramente corretos.
+
+Consequências para calculadoras:
+- Não apresentar todos os valores com o mesmo grau de certeza: marcar explicitamente o intervalo de meios níveis acima de 40 como aproximado.
+- Validar ordenação, unicidade de níveis, faixa permitida e multiplicadores positivos/monotônicos antes de aceitar uma atualização.
+- Preservar precisão decimal; não arredondar multiplicadores antes do cálculo final de CP.
+- Não extrapolar acima do nível 45 nem assumir que a tabela define limites de power-up para qualquer temporada/nível de treinador.
+- A fonte descreve os valores de meio nível como observacionais/aproximados; isso não substitui confirmação do GAME_MASTER atual.
+
+### CP máximo — definição documental limitada
+
+A documentação descreve `pokemon_max_cp.json` como array de registros com `id`, `name` e `max_cp`, e define esse CP máximo como o de um Pokémon perfeito (15/15/15) no nível 40. O corpo atual não foi inspecionado diretamente nesta rodada.
+
+Portanto, o campo não deve ser rotulado genericamente como “CP máximo atual” sem explicitar o nível 40. Para limites de nível superiores, calcular a partir dos stats/IVs e CP multiplier apropriados, quando validados, ou obter uma fonte cuja definição de cap esteja documentada. Validar identidade por ID e forma quando aplicável; não assumir que uma linha única por espécie cobre todas as formas com stats diferentes.
+
+### Matriz de evidência
+
+| Endpoint | Evidência em 2026-11-08 | Uso nesta etapa |
+|---|---|---|
+| `type_effectiveness.json` | Corpo atual inspecionado; matriz numérica direcional 18 × 18 | Contrato pode orientar fixtures; ainda exige revisão de direitos e validação automatizada |
+| `weather_boosts.json` | Contrato documental; corpo não acessível nesta rodada | Não criar fixture nem publicar lista como atual |
+| `cp_multiplier.json` | Corpo atual inspecionado; níveis 1–45 em passos de 0,5 | Planejar calculadora com ressalva explícita para meios níveis 40,5–45 |
+| `pokemon_max_cp.json` | Contrato documental; corpo não acessível nesta rodada | Não publicar como CP máximo atual; definição documentada é nível 40 |
+
+Próxima condição técnica: obter payloads completos com SHA-256 e horário de coleta para os endpoints ainda não inspecionados; produzir fixtures pequenas somente a partir de respostas reais capturadas; criar testes de completude e propriedades matemáticas para a matriz de tipos e multiplicadores; e testar calculadoras contra casos conhecidos. Nenhuma fixture de dados de jogo, parser, integração, ingestão, migration ou operação Supabase foi criada nesta revisão.
+
+A PoGoAPI permanece desabilitada. A auditoria técnica não resolve direitos de persistência, redistribuição ou uso comercial; a revisão de licença/atribuição continua bloqueadora antes de qualquer armazenamento ou publicação dos dados.
