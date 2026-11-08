@@ -200,3 +200,49 @@ A documentação descreve `current_pokemon_moves.json` como registros por Pokém
 Antes de ativar qualquer domínio de movimentos: capturar payloads reais com hash SHA-256 e horário de coleta; construir fixtures pequenas que cubram campos opcionais, listas vazias, movimentos Elite/legacy, formas ausentes e buffs; validar IDs e referências cruzadas; e manter PvE/PvP em schemas e serviços separados. A documentação da fonte não substitui revisão de direitos, atribuição e proveniência descrita acima.
 
 Nenhum parser, fixture de dados do jogo, adaptador, ingestão ou alteração Supabase foi criado nesta etapa. PoGoAPI permanece desabilitada como fonte de runtime.
+
+
+## Auditoria documental de raids e Community Days (2026-11-08)
+
+Esta seção registra os contratos descritos na [documentação pública da PoGoAPI](https://pogoapi.net/documentation/). **Não representa validação integral dos payloads atuais**: a tentativa de inspeção direta de `raid_bosses.json` não retornou o corpo JSON nesta rodada, e o conteúdo acessível de `community_days.json` é histórico e não prova calendário futuro/ativo. Portanto, os campos abaixo são contratos documentados ou observações limitadas, não autorização para publicar rotações como atuais.
+
+### Raids — separar rotação de mecânica
+
+A documentação descreve `raid_bosses.json` como objeto com `current` e `previous`. Cada seção agrupa listas por tiers `1` a `6` e também apresenta a categoria `mega`. Os registros documentados incluem `id`, `name`, `form`, `tier`, `type`, `boosted_weather`, `possible_shiny` e CP mínimo/máximo com e sem clima (`min_boosted_cp`, `max_boosted_cp`, `min_unboosted_cp`, `max_unboosted_cp`).
+
+Cuidados de modelagem:
+
+- `current` e `previous` são rótulos relativos da fonte, não intervalos de vigência. Não inventar `starts_at` ou `ends_at` a partir deles.
+- Tier 6 é uma categoria usada para representar bosses com parâmetros de combate ajustados, embora a documentação diga que aparecem como tier 5 no jogo. Não confundir tier de simulação com rótulo visual da raid.
+- Mega raids aparecem em uma chave própria `mega`, não presumir que sempre sejam um dos arrays numéricos.
+- `possible_shiny` é possibilidade de shiny associada ao boss, não taxa de shiny nem garantia de que o boss esteja atualmente ativo.
+- CP e clima devem permanecer campos distintos; validar limites e tipos reais em payload antes de usar em calculadoras.
+- A documentação explica que ovos já surgidos podem continuar com boss anterior após a troca de rotação. Assim, uma mudança da lista de bosses não implica que todas as raids visíveis mudem simultaneamente.
+
+A documentação de `raid_settings.json` descreve mecânicas/configurações como cooldown e limites de convites, quantidade máxima de participantes, limites de participantes remotos, modificador de dano remoto e disponibilidade de raids remotas. Isso é um domínio de regras de raid, distinto da lista de bosses/rotação. Não misturar settings de jogo com conteúdo temporal da rotação.
+
+### Community Days — histórico não é agenda futura
+
+A documentação descreve `community_days.json` como array de eventos com `community_day_number`, `start_date`, `end_date`, `boosted_pokemon`, `bonuses` e `event_moves`. Cada movimento especial documenta `pokemon`, `move` e `move_type`.
+
+A leitura disponível do endpoint apresentou registros históricos desde 2018. Isso confirma que o arquivo funciona como histórico/lista acumulada, mas não valida que contenha anúncios futuros, todos os eventos atuais ou horários locais completos. Os campos documentados são datas sem hora nem fuso; não fabricar horários de início/fim, janela de evolução ou timezone a partir de uma data.
+
+Consequências:
+
+- Tratar Community Days como registros históricos datados; para agenda futura, exigir confirmação por anúncio oficial/atualizado da Niantic ou fonte editorial atual com horário e fuso.
+- Não inferir que a ausência de um evento futuro significa que não haverá evento anunciado.
+- `event_moves` representa movimentos associados ao evento, mas não prova por si só a janela exata para evoluir, a elegibilidade de cada forma ou disponibilidade de Elite TM.
+- Guardar a data original e a fonte; se não houver timestamp upstream confiável, manter `source_updated_at` nulo e usar `collected_at` apenas como horário da coleta local.
+
+### Estado da evidência e bloqueios
+
+| Arquivo/domínio | Evidência nesta revisão | Uso permitido nesta etapa |
+|---|---|---|
+| `raid_bosses.json` | Contrato documentado; corpo atual não inspecionado | Planejar schema; não anunciar rotação vigente |
+| `raid_settings.json` | Contrato documentado; corpo atual não inspecionado | Planejar domínio de mecânicas; não assumir valores atuais |
+| `community_days.json` | Corpo acessível com registros históricos; sem validação de agenda futura/horários | Histórico candidato, após fixture e validação temporal |
+| Agenda oficial de eventos | Não coberta por esses contratos | Exigir fonte oficial/atual independente |
+
+Antes de qualquer integração, capturar payloads reais completos com URL, horário e SHA-256; validar arrays/objetos, tiers numéricos e `mega`, formas, CPs, clima, shiny e datas; e criar fixtures que cubram rotação vazia, mudança de boss, sobreposição de ovos antigos, campos ausentes e eventos sem horário. Definir a política de expiração por domínio sem confundir cache recente com atualização da fonte.
+
+A PoGoAPI continua desabilitada. Nenhum parser, fixture de dados do jogo, ingestão, migration ou operação Supabase foi criado nesta etapa. A revisão de direitos, atribuição e redistribuição permanece bloqueadora.
