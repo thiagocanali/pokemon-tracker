@@ -7,6 +7,7 @@ const rotations = ref<RaidRotation[]>([]);
 const loading = ref(true);
 const error = ref("");
 const notice = ref("");
+const sourceFreshnessStatus = ref<"fresh"|"stale"|"unknown">("unknown");
 const now = new Date();
 const dateLabel = (value: string) => new Intl.DateTimeFormat("pt-BR",{dateStyle:"medium"}).format(new Date(value));
 const statusLabel = (rotation: RaidRotation) => new Date(rotation.starts_at) > now ? "Próxima" : "Ativa";
@@ -17,6 +18,7 @@ onMounted(async () => {
   try {
     const result = await getRaidRotations(now);
     rotations.value = result.data;
+    sourceFreshnessStatus.value = result.sourceFreshness.status;
     if (result.status === "offline") {
       notice.value = "Últimas informações conhecidas — não foi possível confirmar a rotação atual.";
     }
@@ -32,9 +34,11 @@ onMounted(async () => {
   <main class="raids-page">
     <section class="page-heading">
       <div><p class="eyebrow">INTELIGÊNCIA DE RAIDS</p><h1>Raids</h1><p class="lede">Rotações e chefes cadastrados por fontes verificáveis de Pokémon GO.</p></div>
-      <div class="heading-status"><span class="live-dot"></span><span>{{ notice ? "Último estado conhecido" : activeRotations.length ? "Dados catalogados" : "Sem rotação cadastrada" }}</span><small>Agenda baseada no Supabase</small></div>
+      <div class="heading-status"><span class="live-dot"></span><span>{{ notice ? "Último estado conhecido" : sourceFreshnessStatus === "fresh" ? "Fonte recente" : sourceFreshnessStatus === "stale" ? "Fonte possivelmente desatualizada" : activeRotations.length ? "Fonte sem data de atualização" : "Sem rotação cadastrada" }}</span><small>TTL do cache não representa frescor da fonte</small></div>
     </section>
     <p v-if="notice" class="raid-empty">{{ notice }}</p>
+    <p v-else-if="sourceFreshnessStatus === 'stale'" class="raid-empty">Há registros cuja atualização upstream excede a política de 6 horas; a rotação não é tratada como recém-atualizada.</p>
+    <p v-else-if="sourceFreshnessStatus === 'unknown'" class="raid-empty">A origem não informa timestamp upstream suficiente para confirmar o frescor da rotação.</p>
     <p v-if="loading" class="raid-empty">Carregando rotações...</p>
     <p v-else-if="error" class="raid-empty">{{ error }}</p>
     <p v-else-if="!activeRotations.length" class="raid-empty">Não há chefes ou períodos de raid verificados para exibir. A PokéAPI não fornece rotações de Pokémon GO.</p>
