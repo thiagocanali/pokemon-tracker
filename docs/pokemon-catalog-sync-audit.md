@@ -1,138 +1,127 @@
 # Auditoria da sincronização do catálogo PokéAPI
 
-**Revisado em:** 2026-11-03  
-**Escopo:** função `supabase/functions/sync-pokemon-catalog/index.ts`, migrations da plataforma de dados e leitura de saúde das fontes.  
-**Status:** diagnóstico estático do código versionado. Não houve execução contra o projeto Supabase, consulta ao banco de produção ou aplicação de migrations.
+**Revisado em:** 2026-11-07  
+**Escopo:** função `supabase/functions/sync-pokemon-catalog/index.ts`, validação de entrada, migrations de sincronização, testes versionados e leitura de saúde das fontes.  
+**Status:** diagnóstico estático do código versionado. Não houve execução contra o projeto Supabase, consulta ao banco de produção, aplicação de migrations ou sincronização real.
 
 ## Resumo executivo
 
-A função atual é adequada como primeira carga em lotes pequenos, mas ainda não oferece garantias suficientes para ser considerada um pipeline robusto de sincronização. O maior risco não é a leitura da PokéAPI: é a consistência entre as quatro gravações por registro e a atualização dos metadados de execução.
+A sincronização do catálogo geral da PokéAPI evoluiu desde a auditoria anterior. As gravações de cada Pokémon agora são transacionais via RPC; a finalização de execução/fonte também é atômica e idempotente; tipos são reconciliados; gravações concorrentes antigas são rejeitadas; e a função aplica retry limitado para falhas transitórias.
 
-A integração permanece corretamente limitada ao catálogo geral da franquia. Os registros de PokéAPI não devem ser interpretados como dados específicos de Pokémon GO.
+A integração continua restrita ao catálogo geral da franquia. Ela não fornece stats, movimentos, raids, eventos ou rankings específicos de Pokémon GO.
 
-## Fluxo observado
+**Conclusão:** os principais riscos de consistência apontados na auditoria anterior foram corrigidos no código versionado. Ainda faltam validação runtime completa das respostas upstream, tratamento de `Retry-After`/jitter, testes de integração reais com PostgreSQL/Supabase e uma estratégia de versão que represente alterações upstream — não apenas a versão estática da API.
+
+## Fluxo atual observado
 
 1. Aceita apenas POST e exige o segredo `x-sync-secret`.
-2. Lê `offset` e `limit`; limita o lote a 25 recursos.
+2. Valida JSON e paginação por `parseSyncPagination`; o lote padrão é 20 e o máximo é 25.
 3. Cria um registro `sync_runs` com estado `running`.
-4. Consulta a página `/pokemon` da PokéAPI.
-5. Para cada item, consulta o recurso Pokémon e sua espécie.
-6. Faz upsert em `pokemon_species`, `pokemon_forms`, `pokemon_form_types` e `data_snapshots`.
-7. Marca a execução como concluída e a fonte como atualizada; em exceção, marca a execução como falha e a fonte como offline.
+4. Consulta a página `/pokemon` da PokéAPI e, sequencialmente, cada recurso Pokémon e sua espécie.
+5. Persiste espécie, forma, tipos e snapshot por meio da RPC transacional `sync_pokemon_catalog_record`.
+6. A RPC reconcilia o conjunto de tipos, serializa atualizações por espécie/snapshot e rejeita dados mais antigos que os já persistidos.
+7. Finaliza execução e estado da fonte pela RPC `finish_pokemon_catalog_sync`.
+8. Em falha, tenta registrar estado `failed` e retorna a mensagem de erro e eventual erro de finalização.
 
-## Achados
+## Estado dos achados anteriores
 
-### Alta prioridade
+| Achado anterior | Estado atual | Evidência no repositório |
+|---|---|---|
+| Gravações por Pokémon não atômicas | Corrigido no código | `202611040001_atomic_pokemon_catalog_sync.sql`: uma RPC transacional grava espécie, forma, tipos e snapshot |
+| Finalização ignorava erros | Corrigido no código | A Edge Function verifica o erro da RPC de finalização; a RPC atualiza `sync_runs` e `data_sources` na mesma transação |
+| Tipos antigos permaneciam | Corrigido no código | A RPC apaga os tipos da forma e insere o conjunto recebido na mesma transação |
+| Ausência de retry | Parcialmente corrigido | Retry exponencial limitado para HTTP transitório e erros RPC transitórios; ainda não interpreta `Retry-After` nem adiciona jitter |
+| Entrada/paginação pouco validada | Corrigido para o request | `validation.ts` rejeita JSON não-objeto, offset inválido e limite fora de 1–25 |
+| Concorrência poderia sobrescrever dados novos | Corrigido no código | Migration `202611050002` usa advisory locks e rejeita timestamps anteriores |
+| Confiança numérica arbitrária | Corrigido no payload atual | A Edge Function não envia `confidence: 1`; o banco recebe NULL quando ausente |
+| Versão e proveniência upstream incompletas | Ainda pendente | `data_version` recebe o identificador estático `pokeapi-v2`; `source_updated_at` não é fornecido pela função |
+| Histórico de alterações limitado | Parcialmente implementado | A RPC registra diferenças de primeiro nível no payload de Pokémon; não cobre outros domínios nem diffs aninhados |
+| Contagem de saúde confundia erro com zero | Corrigido no contrato do frontend | `health.ts` distingue `available`, `not-tracked` e `error`; a contagem continua implementada apenas para PokéAPI |
 
-#### 1. Gravações por Pokémon não são atômicas
+## Achados técnicos remanescentes
 
-As quatro gravações são requisições independentes. Uma falha em `pokemon_form_types` ou `data_snapshots`, por exemplo, pode deixar espécie e forma persistidas sem o snapshot correspondente. O contador `records_written` só aumenta após as quatro operações, mas não desfaz as gravações parciais.
+### 1. Respostas upstream sem schema runtime completo — prioridade alta
 
-**Impacto:** estado parcialmente sincronizado e difícil de distinguir de um registro completo.
+A Edge Function tipa respostas da PokéAPI com interfaces TypeScript, mas faz cast do JSON sem validar em runtime campos obrigatórios, tipos, URLs ou relações. TypeScript não valida payload externo.
 
-**Recomendação:** mover a persistência de cada registro (ou do lote) para uma função PostgreSQL/RPC transacional, ou introduzir uma estratégia explícita de staging e promoção. Não tratar apenas o contador como garantia de atomicidade.
+**Risco:** payload incompatível pode falhar no meio do lote ou persistir dados semanticamente incorretos.
 
-#### 2. Erros ao atualizar o estado final são ignorados
+**Próxima ação:** definir validadores pequenos e explícitos para listagem, Pokémon e espécie; rejeitar payload incompleto antes de chamar a RPC. Adicionar fixtures versionadas com casos válidos e inválidos.
 
-Os resultados das operações de update em `sync_runs` e `data_sources` não são verificados, tanto no caminho de sucesso quanto no de falha. A função pode responder `succeeded` mesmo que o registro de execução não tenha sido finalizado ou que a fonte não tenha recebido o novo status.
+### 2. Retry sem Retry-After e jitter — prioridade média
 
-**Impacto:** painel de saúde pode divergir do resultado real da sincronização; execução pode ficar presa em `running`.
+O retry HTTP cobre 408, 425, 429 e alguns 5xx, com backoff exponencial determinístico. Não respeita o cabeçalho `Retry-After` e não adiciona jitter.
 
-**Recomendação:** verificar os dois retornos e registrar claramente falha de finalização. Considerar uma rotina de reconciliação para execuções antigas em `running`.
+**Risco:** execuções concorrentes podem repetir chamadas em sincronia e pressionar a fonte durante rate limiting.
 
-### Média prioridade
+**Próxima ação:** interpretar `Retry-After` (segundos ou data HTTP), limitar espera máxima e adicionar jitter com função injetável/testável. Manter o número de tentativas limitado.
 
-#### 3. Tipos da forma não são reconciliados
+### 3. Lote sequencial — prioridade média
 
-O `upsert` em `pokemon_form_types` insere/atualiza os tipos recebidos, mas não remove slots que tenham deixado de existir. Uma alteração de dois tipos para um pode deixar um tipo secundário antigo no banco.
+Cada item é processado sequencialmente, com duas leituras adicionais e uma gravação RPC. Isso reduz concorrência e simplifica consistência, mas pode aumentar duração do lote.
 
-**Impacto:** composição de tipos persistida pode não refletir o payload mais recente.
+**Risco:** timeout em lotes maiores ou fonte lenta.
 
-**Recomendação:** substituir o conjunto de tipos da forma em operação transacional (delete + insert), ou reconciliar explicitamente os slots ausentes.
+**Próxima ação:** medir duração real antes de otimizar. Se necessário, introduzir concorrência limitada e manter o lock/transação por registro.
 
-#### 4. Ausência de retry/backoff para falhas transitórias
+### 4. Semântica de versão upstream — prioridade média
 
-A função interrompe o lote no primeiro HTTP não-2xx ou exceção de rede. Não há retry para 429, 5xx ou falhas transitórias, nem tratamento explícito de `Retry-After`.
+O valor `pokeapi-v2` identifica a API utilizada, não uma revisão do dataset nem uma versão individual do recurso. A coleta tem timestamp, mas a função não recebe uma data upstream de atualização.
 
-**Impacto:** um problema temporário pode interromper um lote e exigir nova chamada manual.
+**Risco:** consumidores podem interpretar `data_version` como versão do conteúdo.
 
-**Recomendação:** implementar retry limitado com backoff exponencial e jitter, respeitando `Retry-After`; não repetir erros permanentes 4xx (exceto 429).
+**Próxima ação:** documentar `data_version` como versão do contrato/API enquanto não houver versão upstream real; usar hash do payload para deduplicação/comparação de conteúdo se isso for necessário. Não preencher `source_updated_at` com `collected_at`.
 
-#### 5. Lote sequencial e potencialmente lento
+### 5. Histórico de alterações de primeiro nível — prioridade baixa/média
 
-Cada Pokémon requer três leituras HTTP (listagem, recurso e espécie) e quatro gravações, executadas sequencialmente. Um lote de 25 pode gerar muitas chamadas em série.
+A migration `202611050001` compara propriedades de primeiro nível do snapshot anterior e atual. Não gera diff para caminhos aninhados e não representa mudanças em movimentos, eventos ou outros domínios.
 
-**Impacto:** maior latência e maior exposição a timeout/limites da função.
+**Risco:** alterações internas de objetos podem aparecer como uma única substituição do objeto, e o histórico não é global.
 
-**Recomendação:** medir duração real antes de paralelizar. Se necessário, usar concorrência limitada para leituras e persistência transacional, preservando limites do provedor.
+**Próxima ação:** manter o escopo explícito; avaliar diff por JSON path apenas se uma tela de histórico realmente precisar dessa granularidade.
 
-#### 6. Validação de entrada e resposta da fonte é mínima
+### 6. Testes de integração com banco — prioridade alta
 
-O código normaliza `offset` e `limit`, mas não valida explicitamente o formato do JSON, limites máximos do offset, formato dos itens retornados ou campos obrigatórios antes das gravações.
+Há testes Deno para paginação, identidade, proveniência, cache e fallback, mas a inspeção estática não comprova execução real das RPCs transacionais, locks, rejeição de dados antigos ou finalização idempotente contra PostgreSQL.
 
-**Impacto:** payload inesperado pode provocar falha no meio do lote. A conversão numérica também aceita valores como strings numéricas.
+**Risco:** regressões SQL podem passar pelo typecheck/build sem serem exercitadas por um banco real.
 
-**Recomendação:** validar request e respostas com schema runtime (por exemplo, validação manual estruturada ou biblioteca pequena), retornando erro 400 para entrada inválida.
+**Próxima ação:** criar testes de integração com Supabase local/PostgreSQL para:
+- rollback completo quando uma gravação de tipo ou snapshot falhar;
+- reconciliação de slots de tipo;
+- rejeição de timestamp antigo;
+- serialização de duas gravações concorrentes da mesma espécie;
+- repetição idempotente da finalização;
+- rejeição de finalização conflitante.
 
-### Baixa prioridade / melhoria de rastreabilidade
-
-#### 7. Snapshot versionado por instante de coleta
-
-`version` recebe `collectedAt`, gerado uma vez por lote. Assim, toda repetição do mesmo Pokémon em outro lote/execução cria uma nova versão, mesmo sem mudança no conteúdo.
-
-**Impacto:** snapshots representam coletas, não necessariamente mudanças de conteúdo; volume cresce em cada sincronização completa.
-
-**Recomendação:** definir formalmente se `version` significa versão da fonte, hash do payload ou identificador de coleta. Para histórico de coleta, manter `captured_at`; para deduplicação de conteúdo, usar hash/versionamento separado.
-
-#### 8. Campos de confiança e atualização da origem
-
-A função grava `confidence: 1` e não preenche `source_updated_at` ou `data_version`. O valor 1 pode ser interpretado como confiança absoluta, embora represente apenas ingestão direta de uma fonte para o escopo limitado dela.
-
-**Impacto:** metadados sugerem precisão que não foi metodologicamente avaliada.
-
-**Recomendação:** não usar confiança numérica sem critério documentado; registrar versão/hash da resposta quando viável e diferenciar data de coleta de data de atualização upstream.
-
-#### 9. Classificação de formas
-
-A regra atual classifica como `standard` apenas quando `pokemon.name === species.name`; as demais formas viram `other`. É conservadora e evita afirmar que uma forma é Mega, Shadow, Purified, regional ou costume sem evidência adequada.
-
-**Impacto:** classificação é genérica, não necessariamente semanticamente completa.
-
-**Recomendação:** manter `other` até existir fonte e regra verificável para classificar cada variante. Não inferir categorias específicas de Pokémon GO a partir da PokéAPI.
-
-#### 10. Contagem no painel de saúde
-
-`getDataSourceHealth` conta espécies por `source_id`, mas converte erro de contagem em zero. O zero pode ser exibido como se não houvesse registros, sem distinguir falha de consulta. As fontes que não são PokéAPI também recebem contagem zero por definição.
-
-**Impacto:** número zero é ambíguo entre ausência de dados, fonte não aplicável e falha de leitura.
-
-**Recomendação:** modelar contagem como desconhecida/indisponível em caso de erro e explicitar quando uma métrica não se aplica à fonte.
+Não executar migrations no projeto remoto como parte desses testes.
 
 ## O que está correto ou foi confirmado
 
-- A função exige segredo de sincronização e usa a service role somente no ambiente da Edge Function.
-- O lote é limitado a 25 recursos.
-- A chave `form-{pokemon.id}` mantém a identidade do recurso/formulário da PokéAPI separada da espécie.
-- A espécie usa o número e slug do recurso `pokemon-species`.
-- O catálogo de tipos tem chaves compatíveis com os 18 tipos listados na migration.
-- A migration impõe no máximo uma forma padrão por espécie.
-- O schema separa `pokemon_go_stats`, movimentos, rankings, raids e eventos do catálogo geral.
-- A política de fontes já proíbe tratar PokéAPI como fonte de stats/movesets de Pokémon GO.
+- A Edge Function exige segredo e usa service role apenas no servidor.
+- A paginação é limitada e validada antes de iniciar a execução.
+- A identidade de recurso/formulário permanece separada da identidade de espécie.
+- Cada registro é persistido por RPC transacional.
+- Tipos são substituídos como conjunto, evitando slots obsoletos.
+- Locks e timestamps impedem que uma coleta antiga sobrescreva um registro mais novo.
+- A finalização atualiza execução e saúde da fonte atomicamente e é idempotente para o mesmo resultado.
+- A função não envia confiança numérica arbitrária.
+- O frontend diferencia contagem disponível, não monitorada e falha de consulta.
+- O schema mantém stats GO, movimentos, rankings, raids e eventos separados do catálogo geral.
 
 ## Limitações desta auditoria
 
-- Não foi possível confirmar a aplicação das migrations no Supabase remoto.
-- Não foram consultados dados reais das tabelas, logs da Edge Function, secrets ou configurações de agendamento.
-- Não foi executado um lote de sincronização contra PokéAPI ou Supabase.
-- O workflow de CI executa typecheck e build, mas não há script ou framework de testes automatizados no `package.json`.
+- Não foi confirmada a aplicação das migrations no Supabase remoto.
+- Não foram consultados dados reais, logs, secrets ou agendamentos de produção.
+- Não foi executado lote de sincronização contra PokéAPI/Supabase.
+- Testes unitários versionados não substituem testes de integração das RPCs PostgreSQL.
 
-## Ordem recomendada de correção
+## Próxima ordem recomendada
 
-1. Garantir atomicidade das gravações por registro e validar erros de finalização.
-2. Reconciliar os tipos da forma sem deixar dados obsoletos.
-3. Adicionar validação de entrada/respostas e retry limitado.
-4. Definir semântica de `version`, confiança e proveniência.
-5. Ajustar o painel para distinguir zero, não aplicável e erro.
-6. Criar testes com fixtures para mapeamento, reexecução, falha parcial e reconciliação.
+1. Adicionar validação runtime e fixtures para as três respostas PokéAPI.
+2. Cobrir RPCs transacionais e concorrência com testes de integração locais.
+3. Melhorar retry com `Retry-After` e jitter.
+4. Documentar formalmente o significado de `data_version`.
+5. Só então avaliar otimização de concorrência do lote.
 
-**Decisão:** não habilitar novas fontes de Pokémon GO nem avançar para ingestão de rankings/raids até que os itens de alta prioridade estejam resolvidos e os testes com fixtures estejam estabelecidos.
+**Decisão:** manter a integração PokéAPI restrita ao catálogo geral. Não ativar fontes de Pokémon GO nem usar PokéAPI para preencher dados de batalha. A próxima implementação deve começar pelos validadores runtime e fixtures, sem tocar no Supabase remoto.
