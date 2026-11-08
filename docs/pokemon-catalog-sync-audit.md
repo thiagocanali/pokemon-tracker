@@ -1,6 +1,6 @@
 # Auditoria da sincronização do catálogo PokéAPI
 
-**Revisado em:** 2026-11-07  
+**Revisado em:** 2026-11-08  
 **Escopo:** função `supabase/functions/sync-pokemon-catalog/index.ts`, validação de entrada, migrations de sincronização, testes versionados e leitura de saúde das fontes.  
 **Status:** diagnóstico estático do código versionado. Não houve execução contra o projeto Supabase, consulta ao banco de produção, aplicação de migrations ou sincronização real.
 
@@ -24,7 +24,7 @@ A validação runtime agora cobre listagem, recursos Pokémon e espécies, inclu
 6. Persiste espécie, forma, tipos e snapshot por meio da RPC transacional `sync_pokemon_catalog_record`.
 7. A RPC reconcilia o conjunto de tipos, serializa atualizações por espécie/snapshot e rejeita dados mais antigos que os já persistidos.
 8. Finaliza execução e estado da fonte pela RPC `finish_pokemon_catalog_sync`.
-8. Em falha, tenta registrar estado `failed` e retorna a mensagem de erro e eventual erro de finalização.
+9. Em falha, tenta registrar estado `failed` e retorna a mensagem de erro e eventual erro de finalização.
 
 ## Estado dos achados anteriores
 
@@ -112,4 +112,4 @@ Os testes PostgreSQL agora cobrem transação, rollback, reconciliação de tipo
 3. Documentar formalmente o significado de `data_version`.
 4. Só então avaliar otimização de concorrência do lote.
 
-**Decisão:** manter a integração PokéAPI restrita ao catálogo geral. Não ativar fontes de Pokémon GO nem usar PokéAPI para preencher dados de batalha. A próxima implementação deve começar pelos validadores runtime e fixtures, sem tocar no Supabase remoto.
+**Decisão:** manter a integração PokéAPI restrita ao catálogo geral. Não ativar fontes de Pokémon GO nem usar PokéAPI para preencher dados de batalha. A próxima implementação deve priorizar a cobertura de concorrência multi-sessão e retry resiliente, sempre em ambiente local/descartável e sem tocar no Supabase remoto.
