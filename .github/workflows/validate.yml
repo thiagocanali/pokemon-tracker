@@ -58,3 +58,5 @@ jobs:
           done
       - name: Test catalog sync PostgreSQL transactions
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/catalog_sync_integration.sql
+      - name: Test catalog sync multi-session concurrency
+        run: bash supabase/tests/catalog_sync_concurrency.sh
