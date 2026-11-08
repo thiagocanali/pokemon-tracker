@@ -24,6 +24,7 @@ O cadastro de uma fonte **não significa** que ela já esteja integrada ou que s
 | Pokémon GO Hub | Database e ferramentas comunitárias | Fonte secundária/agregadora. Registrar metodologia e créditos do conjunto específico utilizado. |
 | Pokémon GO API (community) | JSON de Pokédex e algumas rotações | API agregadora baseada em Game Master e feeds comunitários. Raids/Max Battles/quests podem vir de fontes distintas; verificar origem por endpoint. O projeto declara uso educacional e direitos de terceiros sobre os dados do jogo. |
 | pogo-db-api (S-Tier-Devs) | Estimativas PvE, counters, raids e eventos | Fonte comunitária derivada de Game Master e feeds como Leek Duck. DPS/TDO/ER são calculados pelo projeto sob hipóteses próprias; não equivalem a simulação completa. Avaliação: [pogo-db-api](./pogo-db-api-evaluation.md). Manter desabilitada até validar fixtures, frescor, licença e direitos dos dados upstream. |
+| PoGoAPI (pogoapi.net) | Stats/forms GO, movimentos PvE/PvP, compatibilidade, CP e alguns dados de disponibilidade | API JSON por domínio, com manifesto SHA-256 para detectar mudanças. Payloads reais de stats e fast moves observados em 2026-11-08; documentação cobre outros endpoints. Aviso legal usa fair use, mas não concede licença aberta clara para redistribuição/persistência. Avaliação: [PoGoAPI](./pogoapi-evaluation.md). Manter desabilitada até esclarecer direitos, validar fixtures e implementar reconciliação. |
 
 
 ### Avaliação técnica do Pokébattler
@@ -49,7 +50,7 @@ A documentação oficial informa que os resultados são simulados e mudam quando
 
 ## Estado da integração
 - PokéAPI: integração existente para catálogo geral.
-- PokeMiners, Pokébattler, PvPoke, Leek Duck, Pokémon GO Hub e Pokémon GO API (community): registrados como candidatos e desabilitados. Não há ingestão ativa desses provedores neste momento.
+- PokeMiners, Pokébattler, PvPoke, Leek Duck, Pokémon GO Hub, Pokémon GO API (community), pogo-db-api e PoGoAPI: registrados como candidatos e desabilitados. Não há ingestão ativa desses provedores neste momento.
 - Não apresentar candidatos como fontes sincronizadas.
 - Antes de habilitar um provedor, implementar adaptador isolado, validação de schema, testes com fixtures versionadas, detecção de alterações e tratamento de falhas/limites.
 
