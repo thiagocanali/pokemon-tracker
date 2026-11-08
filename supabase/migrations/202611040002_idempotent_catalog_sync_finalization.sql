@@ -35,7 +35,7 @@ begin
   if v_current_status = p_status then
     if v_current_records_read = p_records_read
       and v_current_records_written = p_records_written
-      and v_current_error is not distinct from case when p_status = 'failed' then left(p_error, 2000) else null end
+      and v_current_error is not distinct from (case when p_status = 'failed' then left(p_error, 2000) else null end)
     then
       return;
     end if;
