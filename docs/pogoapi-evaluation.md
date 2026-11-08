@@ -132,3 +132,29 @@ Referências:
 - [Stats GO](https://pogoapi.net/api/v1/pokemon_stats.json)
 - [Fast moves PvE](https://pogoapi.net/api/v1/fast_moves.json)
 - [Avisos legais](https://pogoapi.net/Legal/)
+
+
+## Segunda inspeção de contratos reais (2026-11-08)
+
+A inspeção adicional conseguiu abrir diretamente dois endpoints que não estavam descritos como payloads observados na primeira revisão:
+
+| Endpoint | Estrutura observada | Observações e limites |
+|---|---|---|
+| `shiny_pokemon.json` | Objeto JSON indexado por ID em string; cada valor inclui `id`, `name` e flags booleanas `found_egg`, `found_evolution`, `found_photobomb`, `found_raid`, `found_research`, `found_wild` | Alguns registros também incluem flags de forma, como `alolan_shiny`. Não representa calendário de liberação nem garante disponibilidade atual em todos os encontros. |
+| `pokemon_evolutions.json` | Array de espécies/formas de origem; cada registro tem `pokemon_id`, `pokemon_name`, `form` e array `evolutions` | Cada evolução observada inclui `pokemon_id`, `pokemon_name`, `form` e `candy_required`. O payload visto não prova cobertura de todos os requisitos especiais, itens, condições ou caminhos alternativos. |
+
+### Consequências para o modelo
+
+- Shiny deve ser modelado como disponibilidade contextual por método de encontro, e não como um booleano único por espécie.
+- A presença de flags como `found_wild` não prova que o Pokémon esteja atualmente disponível na natureza; é necessário separar possibilidade histórica/geral de rotação vigente.
+- A identidade de evolução também inclui forma de origem e forma de destino. Não inferir que toda evolução compartilha a forma ou que o custo de Candy é o único requisito.
+- Campos opcionais de forma devem ser preservados sem assumir que o conjunto de flags é exaustivo.
+- Antes de transformar esses payloads em fonte canônica, validar consistência referencial, ciclos, destinos ausentes, duplicatas e requisitos especiais em relação a outra fonte confiável.
+
+### Endpoints ainda não validados por inspeção direta
+
+Nesta rodada, as tentativas de abrir diretamente `charged_moves.json`, `pvp_fast_moves.json`, `pvp_charged_moves.json`, `current_pokemon_moves.json`, `pokemon_forms.json` e `raid_bosses.json` não retornaram seus corpos JSON pela ferramenta de inspeção. Permanecem como contratos documentados/listados no manifesto, não como payloads reais validados. Não criar schemas de produção com base apenas nos nomes de arquivo ou em exemplos documentais.
+
+Referências dos payloads observados:
+- [Shiny Pokémon](https://pogoapi.net/api/v1/shiny_pokemon.json)
+- [Evoluções](https://pogoapi.net/api/v1/pokemon_evolutions.json)
