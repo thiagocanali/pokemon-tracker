@@ -61,6 +61,6 @@ export async function getMovesCatalog(): Promise<MovesCatalogResult> {
     }
   }
 
-  if (cached) return { data: cached.value, status: "offline", cachedAt: cached.cachedAt };
+  if (cached) return { data: cached.value, status: "offline", cachedAt: cached.cachedAt, sourceFreshness: getSourceFreshness(cached.value, SOURCE_FRESHNESS_MAX_AGE_MS) };
   throw new Error("Supabase indisponível e catálogo de moves sem cache local.");
 }
