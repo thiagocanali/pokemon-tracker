@@ -2,7 +2,7 @@
 
 **Revisado em:** 2026-11-08  
 **Escopo:** migrations versionadas, Edge Functions de ingestão, serviços de leitura/cache, proveniência e páginas de consulta.  
-**Método:** inspeção estática do branch `main` após os PRs #59–#68 e do incremento do PR #69.  
+**Método:** inspeção estática do branch `main` após os PRs #59–#69.  
 **Limitação:** não houve conexão ao Supabase remoto, consulta às tabelas de produção ou execução de sincronização. A existência de tabela, serviço ou tela não prova que existam registros válidos nela.
 
 ## Resumo executivo
@@ -44,21 +44,21 @@ A Edge Function `sync-pokemon-catalog` grava espécies, formas, tipos e snapshot
 
 `moves.ts`, `rankings.ts`, `goCatalog.ts` e `goPokemonCore.ts` usam TTL de cache IndexedDB. Quando uma consulta ao Supabase é bem-sucedida, os serviços registram uma nova hora local de cache e retornam status `fresh`. Isso significa que a leitura do banco ocorreu agora; não significa que o provedor atualizou os dados recentemente.
 
-Os serviços retornam cache vencido com status `offline` quando a consulta falha. A idade da origem precisa ser avaliada separadamente com `collected_at`, `source_updated_at`, saúde da fonte e política de validade específica do domínio.
+`status` e `cachedAt` descrevem o transporte/cache local: `fresh` significa que a leitura do Supabase foi concluída, `cached` que o TTL local foi atendido e `offline` que foi usado o último valor local após falha. Nenhum desses estados, isoladamente, comprova atualização upstream.
 
-O PR #69 adiciona `getSourceFreshness`, que avalia `source_updated_at` de forma conservadora e mantém `collected_at` como metadado de coleta. Os serviços retornam `sourceFreshness` separadamente de `status`/`cachedAt`. Quando a origem não fornece timestamp upstream suficiente, o estado é `unknown`, nunca `fresh` por causa de uma leitura recente. As políticas atuais são 7 dias para moves/rankings, 24 horas para eventos/temporadas, 6 horas para raids e 30 dias para o núcleo GO. A interface não usa mais o TTL do IndexedDB para afirmar atualização upstream.
+O PR #69 adicionou `getSourceFreshness`, que avalia os timestamps `source_updated_at` dos registros e mantém `collected_at` apenas como horário de coleta. Os serviços expõem esse resultado separadamente. A política usa a data upstream mais antiga do conjunto para evitar que um único registro recente esconda registros antigos. Se algum registro não tiver timestamp upstream válido, se o conjunto estiver vazio ou se a data estiver no futuro, o resultado é `unknown`, nunca `fresh` por causa de uma leitura/cache recente. As janelas configuradas são 7 dias para moves/rankings, 24 horas para eventos/temporadas, 6 horas para raids e 30 dias para identidade/stats do núcleo GO. Essas janelas são políticas locais de alerta, não garantias dos provedores.
+
+**Limitação importante:** `battle_rankings` não possui `source_updated_at`; portanto, rankings permanecem `unknown` mesmo quando consultados agora. A tabela de moves, eventos, temporadas, raids e núcleo GO possui timestamps upstream por registro, mas só poderá retornar `fresh` quando todos os registros do resultado tiverem datas válidas dentro da janela.
 
 ### 3. Proveniência dos stats GO separada da proveniência da forma — implementado
 
-`goPokemonCore.ts` carrega a proveniência da linha `pokemon_forms`, mas a relação `pokemon_go_stats` seleciona atualmente apenas `attack`, `defense`, `stamina` e `max_cp`. O schema de `pokemon_go_stats` tem seus próprios `source_id`, `source_url`, `collected_at`, `source_updated_at`, `data_version` e `confidence`, que podem diferir da origem da identidade da forma.
+`goPokemonCore.ts` carrega a proveniência da linha `pokemon_forms` e, separadamente, a proveniência da relação `pokemon_go_stats`: `source_id`, `source_url`, `collected_at`, `source_updated_at`, `data_version` e `confidence`. O modelo canônico expõe os metadados dos stats dentro de `stats.provenance`, sem herdar os metadados da forma. O PR #68 implementou essa separação; o PR #69 também expõe `statsSourceFreshness` separadamente de `sourceFreshness` da identidade da forma.
 
-**Risco:** um consumidor pode atribuir aos stats a fonte e a data da forma, mesmo que os stats tenham sido obtidos de outro provedor ou em outro momento.
-
-O PR #68 adicionou a proveniência própria dentro de `stats`; o PR #69 também expõe `statsSourceFreshness` separadamente de `sourceFreshness` da identidade da forma.
+**Limitação:** a separação de proveniência no modelo de leitura não significa que existam registros de stats no banco nem que exista ingestão GO. A carga continua ausente e não foi verificada no Supabase remoto.
 
 ### 4. Contratos de proveniência variam entre domínios — prioridade média
 
-`moves.ts` carrega `source_id`, `source_url`, `collected_at`, `source_updated_at` e `data_version`. `goCatalog.ts` carrega esses metadados para eventos, temporadas e rotações. `rankings.ts` carrega origem, URL, coleta e versão, mas a tabela `battle_rankings` não possui atualmente `source_updated_at`.
+`moves.ts` carrega `source_id`, `source_url`, `collected_at`, `source_updated_at` e `data_version`. `goCatalog.ts` carrega esses metadados para eventos, temporadas e rotações. `goPokemonCore.ts` mantém proveniência distinta para forma e stats. `rankings.ts` carrega origem, URL, coleta e versão, mas a tabela `battle_rankings` não possui atualmente `source_updated_at`; por isso o frescor upstream de rankings não pode ser confirmado.
 
 **Ação:** manter os contratos explícitos por tabela e não prometer um campo que o schema não oferece. Se uma fonte de ranking fornecer data upstream confiável e o produto precisar dela, planejar migration específica antes de mapear o campo.
 
@@ -106,4 +106,4 @@ Os serviços criam cache após uma leitura bem-sucedida do Supabase. Não foi id
 - [ ] Teste de primeira carga e fallback offline.
 - [ ] Interface não apresenta dado vencido como atualizado.
 
-**Decisão:** manter todos os provedores comunitários GO desabilitados até que os critérios acima sejam atendidos. Proveniência dos stats e separação entre cache/source freshness já estão implementadas; o próximo incremento deve trabalhar com payloads reais e contratos de ingestão, sem ativar fontes por configuração isolada.
+**Decisão:** manter todos os provedores comunitários GO desabilitados até que os critérios acima sejam atendidos. Proveniência independente dos stats e separação entre cache/source freshness já estão implementadas. O próximo incremento deve trabalhar com payloads reais e contratos de ingestão, sem ativar fontes por configuração isolada.
