@@ -393,3 +393,30 @@ Para uma calculadora:
 Antes de qualquer integração, capturar os três payloads ainda não inspecionados com URL, horário e SHA-256; criar fixtures apenas a partir de respostas reais; validar a relação entre formas e IDs; e testar calculadoras em incrementos de meio nível. Evolução, buddy candy distance, Mega e power-up devem permanecer domínios distintos.
 
 A PoGoAPI continua desabilitada. Esta auditoria não autoriza persistência, redistribuição ou uso comercial; a revisão de direitos e atribuição continua bloqueadora. Nenhum parser, fixture de dados de jogo, adaptador, ingestão, migration ou operação Supabase foi criado nesta revisão.
+
+
+### Progressão do treinador — XP, recompensas e amizade
+
+A documentação também descreve três conjuntos de progressão que devem permanecer separados dos dados de Pokémon:
+
+- `player_xp_requirements.json`: objeto indexado pelo nível do treinador, com XP cumulativo necessário para atingir cada nível.
+- `levelup_rewards.json`: estrutura de recompensas desbloqueadas ao subir de nível, incluindo itens e quantidades associados ao nível.
+- `friendship_level_settings.json`: configurações de níveis de amizade entre jogadores e benefícios relacionados.
+
+Os três corpos não foram inspecionados diretamente nesta rodada; portanto, os formatos acima são contratos documentados, não fixtures verificadas.
+
+Regras para futura implementação:
+- XP cumulativo por nível não é o mesmo que XP necessário para o próximo nível. Se a UI mostrar “faltam X XP”, calcular a diferença entre o requisito do próximo nível e o XP total atual, sem alterar o valor original da fonte.
+- Validar monotonicidade dos requisitos de XP, níveis sem lacunas, valores inteiros não negativos e presença do nível inicial.
+- Recompensas de nível devem ser representadas como lista de itens/quantidades, sem presumir que todos os níveis tenham recompensa ou que o conjunto documentado seja necessariamente o atual.
+- Configurações de amizade são regras do jogo; progresso real de amizade, interações diárias e estado entre duas contas pertencem aos dados do jogador e não são fornecidos por uma tabela global de configurações.
+- Não confundir bônus de amizade com bônus de dano em raids, desconto de troca ou Premier Balls sem modelar cada efeito explicitamente e sua condição.
+- As tabelas de progressão podem mudar com atualizações do jogo. Registrar versão/hash e coleta, e não apresentar leitura recente do cache como prova de atualização upstream.
+
+| Endpoint | Evidência em 2026-11-08 | Uso nesta etapa |
+|---|---|---|
+| `player_xp_requirements.json` | Contrato documental; corpo não inspecionado | Planejar calculadora de XP, sem fixture |
+| `levelup_rewards.json` | Contrato documental; corpo não inspecionado | Planejar tabela de recompensas, sem afirmar conteúdo atual |
+| `friendship_level_settings.json` | Contrato documental; corpo não inspecionado | Planejar referência de regras, sem inferir progresso do jogador |
+
+Esses endpoints permanecem fora de qualquer integração nesta etapa. Antes de criar calculadoras ou páginas de progressão, obter payloads reais, verificar hashes e construir testes de consistência. Não armazenar progresso pessoal de jogador como se fosse dado público do Game Master.
