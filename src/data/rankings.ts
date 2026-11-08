@@ -64,11 +64,11 @@ export async function getBattleRankings(
       await writePersistentCache(key, rows);
       return { data: rows, status: "fresh", cachedAt, sourceFreshness: getSourceFreshness(rows.map((row) => ({ collected_at: row.collected_at, source_updated_at: null })), SOURCE_FRESHNESS_MAX_AGE_MS) };
     } catch (error) {
-      if (cached) return { data: cached.value, status: "offline", cachedAt: cached.cachedAt, sourceFreshness: getSourceFreshness(cached.value, SOURCE_FRESHNESS_MAX_AGE_MS) };
+      if (cached) return { data: cached.value, status: "offline", cachedAt: cached.cachedAt, sourceFreshness: getSourceFreshness(cached.value.map((row) => ({ collected_at: row.collected_at, source_updated_at: null })), SOURCE_FRESHNESS_MAX_AGE_MS) };
       throw error;
     }
   }
 
-  if (cached) return { data: cached.value, status: "offline", cachedAt: cached.cachedAt };
+  if (cached) return { data: cached.value, status: "offline", cachedAt: cached.cachedAt, sourceFreshness: getSourceFreshness(cached.value.map((row) => ({ collected_at: row.collected_at, source_updated_at: null })), SOURCE_FRESHNESS_MAX_AGE_MS) };
   throw new Error("Supabase indisponível e rankings sem cache local.");
 }
