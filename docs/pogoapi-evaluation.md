@@ -308,3 +308,115 @@ Portanto, o campo não deve ser rotulado genericamente como “CP máximo atual�
 Próxima condição técnica: obter payloads completos com SHA-256 e horário de coleta para os endpoints ainda não inspecionados; produzir fixtures pequenas somente a partir de respostas reais capturadas; criar testes de completude e propriedades matemáticas para a matriz de tipos e multiplicadores; e testar calculadoras contra casos conhecidos. Nenhuma fixture de dados de jogo, parser, integração, ingestão, migration ou operação Supabase foi criada nesta revisão.
 
 A PoGoAPI permanece desabilitada. A auditoria técnica não resolve direitos de persistência, redistribuição ou uso comercial; a revisão de licença/atribuição continua bloqueadora antes de qualquer armazenamento ou publicação dos dados.
+
+
+## Auditoria documental de evolução, Mega e progressão (2026-11-08)
+
+Esta seção registra a leitura direta dos endpoints `pokemon_evolutions.json` e `pokemon_buddy_distances.json`, além dos contratos documentados para Mega Evolução e custos de progressão. Os corpos de `mega_pokemon.json`, `mega_evolution_settings.json` e `pokemon_powerup_requirements.json` não foram inspecionados nesta rodada. Não transformar exemplos documentados em fixtures de payload atual.
+
+### Evoluções — grafo por espécie e forma, com requisitos opcionais
+
+O corpo atual de `pokemon_evolutions.json` foi inspecionado diretamente. O payload é um array de nós de origem; cada nó possui `pokemon_id`, `pokemon_name`, forma opcional e uma lista `evolutions` com destinos. A amostra contém tanto evoluções simples quanto ramificadas, múltiplas formas e requisitos condicionais.
+
+Campos observados/documentados incluem:
+- `candy_required`, `item_required`, `lure_required`;
+- `no_candy_cost_if_traded` e `priority`;
+- `only_evolves_in_daytime`, `only_evolves_in_nighttime`;
+- `must_be_buddy_to_evolve`, `buddy_distance_required`;
+- `gender_required`;
+- forma no nó de origem e no destino.
+
+Exemplos encontrados no payload atual:
+- Eevee possui múltiplos destinos; Espeon/Umbreon têm distância de buddy, exigência de buddy ativo e condição de dia/noite, enquanto outras evoluções usam prioridade e/ou lure.
+- Evoluções com itens como Sinnoh Stone, Dragon Scale, Metal Coat, Sun Stone e Unova Stone.
+- Burmy tem destinos diferentes por forma e gênero; Combee → Vespiquen exige Female.
+- Phantump/Pumpkaboo possuem a condição `no_candy_cost_if_traded`.
+- Dunsparce pode resultar em formas distintas de Dudunsparce.
+
+Regras de modelagem:
+- A identidade da aresta deve incluir origem (ID + forma) e destino (ID + forma); não deduplicar apenas por espécie/ID.
+- Preservar requisitos opcionais como campos independentes. Campo ausente não significa requisito falso/zero sem uma regra de normalização validada.
+- `priority` influencia seleção quando múltiplas evoluções são elegíveis; não ordenar opções alfabeticamente e assumir que isso representa a escolha do jogo.
+- Não reduzir a evolução a custo de candy: requisitos de item, lure, buddy, distância, gênero, horário, troca e forma são parte do contrato.
+- O payload documenta condições, mas não substitui validação do comportamento atual do cliente do jogo nem cobre necessariamente todos os requisitos contextuais/temporários.
+- Criar testes para ramificações, formas, requisitos opcionais, listas vazias, IDs repetidos com formas diferentes e referências de destino ausentes.
+
+### Buddy distance — agrupamento por distância, identidade por forma
+
+O corpo atual de `pokemon_buddy_distances.json` foi inspecionado diretamente. É um objeto cujas chaves representam distâncias em quilômetros; cada valor é uma lista de registros com `distance`, `pokemon_id`, `pokemon_name` e `form` quando aplicável. O payload contém diversas formas/costumes para um mesmo ID, o que confirma que a chave de espécie isolada não é suficiente para preservar a cobertura.
+
+Não inferir que a distância de buddy seja sempre requisito de evolução: este endpoint descreve a distância para obter candy ao caminhar com o buddy. O requisito de distância para evoluir deve vir da aresta de evolução (`buddy_distance_required`) e manter semântica separada. Também não assumir que todo Pokémon com buddy distance de 1/3/5/20 km pode evoluir após caminhar essa distância.
+
+### Mega Pokémon — catálogo e custo de energia
+
+A documentação descreve `mega_pokemon.json` como uma lista de Mega Evoluções possíveis, com identidade do Pokémon, forma Mega, nome, stats base, tipos, energia exigida na primeira Mega Evolução e custo reduzido nas seguintes; `cp_multiplier_override` pode existir para cálculo de CP.
+
+Implicações:
+- Mega deve ser modelada como forma/estado temporário relacionado ao Pokémon base, não como espécie independente.
+- Preservar formas Mega distintas (por exemplo, variantes X/Y quando aplicável), stats e tipos próprios.
+- Custos de primeira utilização e reutilização são campos distintos; não substituir um pelo outro.
+- `cp_multiplier_override`, quando presente, tem precedência específica para cálculo de CP daquela forma; não aplicar silenciosamente o multiplicador padrão.
+- A documentação não fornece, nesta revisão, evidência de payload atual validado. O corpo do endpoint não foi inspecionado; não gerar fixture nem apresentar catálogo Mega como atual.
+
+### Mega Evolution settings — mecânicas globais separadas do catálogo
+
+A documentação descreve `mega_evolution_settings.json` com configurações globais como bônus de ataque geral e do mesmo tipo em raids, limite de Mega Energy, duração da Mega Evolução e bônus de candy ao capturar Pokémon do mesmo tipo. O corpo atual não foi inspecionado.
+
+Essas configurações são regras globais e não devem ser duplicadas em cada registro Mega. Separar:
+1. catálogo por Pokémon/forma (stats, tipos, custos, override de CP);
+2. regras globais (duração, bônus, limites e recompensas);
+3. estado individual do jogador (nível Mega, cooldown/energia), que não é fornecido por esses endpoints.
+
+Os valores do exemplo documental não devem ser tratados como valores atuais sem captura de payload e verificação temporal.
+
+### Power-up requirements — tabela de custos por nível
+
+A documentação descreve `pokemon_powerup_requirements.json` como objeto indexado pelo nível atual, com `current_level`, `level_after_powering`, `candy_to_upgrade`, `xl_candy_to_upgrade` e `stardust_to_upgrade`. O texto da documentação descreve candy comum até nível 40 e XL acima disso, com limite máximo apresentado como nível 50. O corpo atual não foi inspecionado nesta rodada.
+
+Para uma calculadora:
+- Cada linha representa um incremento de meio nível; não tratar a chave textual como número sem validar formato e correspondência com `current_level`.
+- Somar custos do intervalo solicitado por incremento, separando candy normal, XL e Stardust.
+- Não assumir que o jogador pode aplicar todos os incrementos: nível do treinador, limites do jogo e estado do Pokémon podem restringir o resultado e precisam ser modelados separadamente.
+- Validar sequência contínua, ausência de duplicatas, custos não negativos, `level_after_powering > current_level` e limites de nível.
+- Não usar custos documentados como valores atuais até inspecionar payload e confirmar se a tabela reflete a versão vigente do jogo.
+
+### Estado da evidência
+
+| Endpoint | Evidência em 2026-11-08 | Uso nesta etapa |
+|---|---|---|
+| `pokemon_evolutions.json` | Corpo atual inspecionado; requisitos condicionais e formas presentes | Contrato apto a orientar fixtures depois da revisão de direitos |
+| `pokemon_buddy_distances.json` | Corpo atual inspecionado; objeto agrupado por distância e registros com formas | Contrato apto a orientar fixtures depois da revisão de direitos |
+| `mega_pokemon.json` | Contrato documental; corpo não inspecionado | Não publicar catálogo Mega como atual |
+| `mega_evolution_settings.json` | Contrato documental; corpo não inspecionado | Não aplicar bônus/duração como valores atuais |
+| `pokemon_powerup_requirements.json` | Contrato documental; corpo não inspecionado | Não alimentar calculadora de Stardust/candy com valores não verificados |
+
+Antes de qualquer integração, capturar os três payloads ainda não inspecionados com URL, horário e SHA-256; criar fixtures apenas a partir de respostas reais; validar a relação entre formas e IDs; e testar calculadoras em incrementos de meio nível. Evolução, buddy candy distance, Mega e power-up devem permanecer domínios distintos.
+
+A PoGoAPI continua desabilitada. Esta auditoria não autoriza persistência, redistribuição ou uso comercial; a revisão de direitos e atribuição continua bloqueadora. Nenhum parser, fixture de dados de jogo, adaptador, ingestão, migration ou operação Supabase foi criado nesta revisão.
+
+
+### Progressão do treinador — XP, recompensas e amizade
+
+A documentação também descreve três conjuntos de progressão que devem permanecer separados dos dados de Pokémon:
+
+- `player_xp_requirements.json`: objeto indexado pelo nível do treinador, com XP cumulativo necessário para atingir cada nível.
+- `levelup_rewards.json`: estrutura de recompensas desbloqueadas ao subir de nível, incluindo itens e quantidades associados ao nível.
+- `friendship_level_settings.json`: configurações de níveis de amizade entre jogadores e benefícios relacionados.
+
+Os três corpos não foram inspecionados diretamente nesta rodada; portanto, os formatos acima são contratos documentados, não fixtures verificadas.
+
+Regras para futura implementação:
+- XP cumulativo por nível não é o mesmo que XP necessário para o próximo nível. Se a UI mostrar “faltam X XP”, calcular a diferença entre o requisito do próximo nível e o XP total atual, sem alterar o valor original da fonte.
+- Validar monotonicidade dos requisitos de XP, níveis sem lacunas, valores inteiros não negativos e presença do nível inicial.
+- Recompensas de nível devem ser representadas como lista de itens/quantidades, sem presumir que todos os níveis tenham recompensa ou que o conjunto documentado seja necessariamente o atual.
+- Configurações de amizade são regras do jogo; progresso real de amizade, interações diárias e estado entre duas contas pertencem aos dados do jogador e não são fornecidos por uma tabela global de configurações.
+- Não confundir bônus de amizade com bônus de dano em raids, desconto de troca ou Premier Balls sem modelar cada efeito explicitamente e sua condição.
+- As tabelas de progressão podem mudar com atualizações do jogo. Registrar versão/hash e coleta, e não apresentar leitura recente do cache como prova de atualização upstream.
+
+| Endpoint | Evidência em 2026-11-08 | Uso nesta etapa |
+|---|---|---|
+| `player_xp_requirements.json` | Contrato documental; corpo não inspecionado | Planejar calculadora de XP, sem fixture |
+| `levelup_rewards.json` | Contrato documental; corpo não inspecionado | Planejar tabela de recompensas, sem afirmar conteúdo atual |
+| `friendship_level_settings.json` | Contrato documental; corpo não inspecionado | Planejar referência de regras, sem inferir progresso do jogador |
+
+Esses endpoints permanecem fora de qualquer integração nesta etapa. Antes de criar calculadoras ou páginas de progressão, obter payloads reais, verificar hashes e construir testes de consistência. Não armazenar progresso pessoal de jogador como se fosse dado público do Game Master.
