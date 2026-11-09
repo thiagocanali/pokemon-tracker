@@ -420,3 +420,63 @@ Regras para futura implementação:
 | `friendship_level_settings.json` | Contrato documental; corpo não inspecionado | Planejar referência de regras, sem inferir progresso do jogador |
 
 Esses endpoints permanecem fora de qualquer integração nesta etapa. Antes de criar calculadoras ou páginas de progressão, obter payloads reais, verificar hashes e construir testes de consistência. Não armazenar progresso pessoal de jogador como se fosse dado público do Game Master.
+
+
+## Auditoria de reconciliação com o modelo canônico existente (2026-11-09)
+
+Esta etapa comparou os contratos já observados da PoGoAPI com a migration inicial e os serviços atuais do PokéLab. O objetivo é identificar o que pode ser conectado com segurança — sem ativar o provider nem gravar dados externos.
+
+### Modelo canônico confirmado no repositório
+
+A migration `202609280001_initial_data_platform.sql` define:
+
+- `pokemon_species.id`: identidade interna da espécie; `dex_number` é único.
+- `pokemon_forms.id`: identidade interna da forma, ligada a `species_id`; `slug` é único.
+- `pokemon_go_stats.form_id`: chave primária e FK para a forma; stats são armazenados por forma.
+- `moves.id`: chave textual interna; o registro combina campos PvE e PvP, com `category` (`fast`/`charged`) e proveniência própria.
+- `pokemon_moves`: relação forma ↔ movimento, com `learn_method` e `event_limited`; a chave inclui `form_id`, `move_id` e `event_limited`.
+- `data_sources`: catálogo de fontes e limitações; cadastro de fonte não equivale a provider habilitado.
+
+Os serviços atuais confirmam que `goPokemonCore.ts` lê formas, espécies, tipos e stats; `moves.ts` lê o catálogo de movimentos. Nenhum desses serviços atualmente reconcilia IDs externos PoGoAPI ou ingere `current_pokemon_moves.json`.
+
+### Mapeamento seguro por domínio
+
+| Dado PoGoAPI | Destino conceitual | Regra de reconciliação |
+|---|---|---|
+| `pokemon_stats.json` | `pokemon_go_stats` + `pokemon_forms` | A chave externa é `pokemon_id + form`; nunca usar somente o ID nacional nem o nome. Exigir crosswalk explícito para `pokemon_forms.id`. |
+| `fast_moves.json` | `moves` | O `move_id` numérico externo não corresponde automaticamente ao `moves.id` textual. Exigir identidade externa persistente/crosswalk; nome não é chave suficiente. |
+| `current_pokemon_moves.json` | `pokemon_moves` | Resolver espécie + forma para forma canônica e cada move para ID canônico. Preservar separadamente listas normais, Elite/legacy e limitações de evento. |
+| Contratos PvP | campos PvP de `moves` ou domínio próprio | Não preencher campos PvP com valores PvE; validar `turn_duration`, buffs e efeitos como contrato separado. |
+| Manifesto `api_hashes.json` | metadado de execução/versionamento | Guardar hash SHA-256 do arquivo bruto e escopo do hash; não atribuir timestamp upstream sem evidência. |
+
+### Lacunas do schema atual que impedem integração direta
+
+1. **Identidade de movimentos externa:** `moves.id` é textual e não há coluna de origem/ID externo dedicada. Um slug calculado do nome pode colidir ou mudar; não é uma chave substituta segura para o `move_id` do provedor.
+2. **Identidade de formas externa:** `pokemon_forms` não possui crosswalk para `pokemon_id + form`. A normalização automática de rótulos pode juntar formas diferentes ou deixar variantes sem correspondência.
+3. **Disponibilidade de movimentos:** `pokemon_moves.event_limited` é um booleano e `learn_method` é texto livre. Isso não representa de forma inequívoca as categorias normal, Elite fast, Elite charged, legacy e outras condições de evento. Não converter listas Elite em `event_limited=true` sem uma taxonomia formal.
+4. **Domínios PvE/PvP:** a tabela `moves` mantém colunas PvE e PvP no mesmo registro. Isso só é seguro se a identidade do movimento for comprovadamente compartilhada e se os dois contratos forem reconciliados de forma independente; não assumir isso apenas porque os nomes coincidem.
+5. **Versão do dataset:** o hash do arquivo pode servir como `data_version` com prefixo/escopo explícito, mas não deve ser confundido com `source_updated_at`.
+
+### Estratégia de reconciliação proposta (não implementada)
+
+Antes de qualquer ingestão, criar uma camada explícita de crosswalk por provider e domínio, com pelo menos:
+
+- `provider_id` e `domain`;
+- `external_id` (texto, para suportar IDs numéricos e compostos);
+- `external_form_key` quando a identidade depende da forma;
+- `canonical_entity_type` e `canonical_entity_id`;
+- `source_url`, hash/versão observada e horário de coleta;
+- estado de revisão (`matched`, `unmatched`, `ambiguous`, `rejected`) e motivo.
+
+A camada deve rejeitar correspondências ambíguas, produzir relatório de órfãos e colisões, e nunca criar automaticamente formas/moves canônicos a partir de nomes não verificados. A chave externa de stats deve preservar o par `pokemon_id + form`; uma forma ausente no payload precisa ter regra explícita e não pode ser silenciosamente igualada à forma padrão.
+
+Para movimentos, manter a classificação de compatibilidade como enumeração estruturada (por exemplo, normal, Elite fast, Elite charged e event-limited), após validar os significados do payload real. Não usar um campo booleano como substituto de várias condições independentes.
+
+### Decisão desta auditoria
+
+- O modelo atual já comporta stats por forma e relações Pokémon–moves em alto nível.
+- O modelo atual **não oferece chaves externas suficientes** para uma ingestão PoGoAPI segura de stats, moves e compatibilidade sem uma camada de crosswalk.
+- A primeira implementação futura deve ser a reconciliação/teste em modo dry-run, com relatório de matches/órfãos/ambiguidades; não uma carga direta nas tabelas canônicas.
+- O corpo de `current_pokemon_moves.json` ainda não foi inspecionado diretamente nesta auditoria; seu parser permanece bloqueado até haver fixture real e validação dos campos.
+- A revisão de direitos/licença e atribuição continua bloqueadora para persistência ou redistribuição. Nenhuma migration, provider ativo, sincronização ou operação Supabase remota foi executada.
+
