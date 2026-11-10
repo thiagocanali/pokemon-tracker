@@ -44,7 +44,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Test catalog and PoGoAPI contract validation
-        run: deno test --allow-net supabase/functions/sync-pokemon-catalog/validation_test.ts supabase/functions/sync-pokemon-catalog/retry_test.ts supabase/functions/pogoapi/validation_test.ts supabase/functions/pogoapi/reconciliation_test.ts supabase/functions/cache-tests/freshness_test.ts supabase/functions/cache-tests/stale_pokemon_fallback_test.ts supabase/functions/cache-tests/provenance_test.ts supabase/functions/cache-tests/pokemon_identity_test.ts
+        run: deno test --allow-net supabase/functions/sync-pokemon-catalog/validation_test.ts supabase/functions/sync-pokemon-catalog/retry_test.ts supabase/functions/pogoapi/validation_test.ts supabase/functions/pogoapi/reconciliation_test.ts supabase/functions/pogoapi/crosswalk_test.ts supabase/functions/cache-tests/freshness_test.ts supabase/functions/cache-tests/stale_pokemon_fallback_test.ts supabase/functions/cache-tests/provenance_test.ts supabase/functions/cache-tests/pokemon_identity_test.ts
 
       - name: Install PostgreSQL client
         run: sudo apt-get install -y postgresql-client
