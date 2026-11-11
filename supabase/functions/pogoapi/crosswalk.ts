@@ -32,24 +32,37 @@ export type CrosswalkValidationReport = {
   issues: CrosswalkValidationIssue[];
 };
 
-const DOMAINS = new Set<PoGoApiCrosswalkDomain>([
+const DOMAIN_ENTITY: Record<PoGoApiCrosswalkDomain, CanonicalEntityType> = {
+  pokemon_stats: "pokemon_form",
+  current_pokemon_moves: "pokemon_form",
+  fast_moves: "move",
+  charged_moves: "move",
+  pvp_fast_moves: "move",
+  pvp_charged_moves: "move",
+};
+
+const FORM_SCOPED_DOMAINS = new Set<PoGoApiCrosswalkDomain>([
   "pokemon_stats",
+  "current_pokemon_moves",
+]);
+
+const NUMERIC_ID_DOMAINS = new Set<PoGoApiCrosswalkDomain>([
+  "pokemon_stats",
+  "current_pokemon_moves",
   "fast_moves",
   "charged_moves",
   "pvp_fast_moves",
   "pvp_charged_moves",
-  "current_pokemon_moves",
 ]);
-
-const ENTITY_TYPES = new Set<CanonicalEntityType>(["pokemon_form", "move"]);
 
 function nonEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
 /**
- * Validates a manually reviewed PoGoAPI crosswalk without deriving mappings
- * from names. Invalid entries are returned as issues and never silently kept.
+ * Validates manually reviewed PoGoAPI crosswalk entries. Domain/entity
+ * compatibility is enforced so Pokémon records cannot be mapped to moves
+ * and move records cannot be mapped to forms.
  */
 export function validatePoGoApiCrosswalk(
   entries: readonly PoGoApiCrosswalkEntry[],
@@ -61,28 +74,42 @@ export function validatePoGoApiCrosswalk(
     const addIssue = (field: string, reason: string) => issues.push({ index, field, reason });
 
     if (entry.providerId !== "pogoapi") addIssue("providerId", "Provider must be pogoapi.");
-    if (!DOMAINS.has(entry.domain)) addIssue("domain", "Unsupported PoGoAPI domain.");
+    if (!(entry.domain in DOMAIN_ENTITY)) addIssue("domain", "Unsupported PoGoAPI domain.");
     if (!nonEmpty(entry.externalId)) addIssue("externalId", "External ID must be non-empty.");
-    if (!ENTITY_TYPES.has(entry.canonicalEntityType)) {
-      addIssue("canonicalEntityType", "Unsupported canonical entity type.");
-    }
     if (!nonEmpty(entry.canonicalEntityId)) {
       addIssue("canonicalEntityId", "Canonical entity ID must be non-empty.");
     }
-    if (!nonEmpty(entry.sourceUrl)) addIssue("sourceUrl", "Source URL must be non-empty.");
-    if (!nonEmpty(entry.dataVersion)) addIssue("dataVersion", "Data version must be non-empty.");
-
-    if (entry.domain === "pokemon_stats") {
-      if (entry.canonicalEntityType !== "pokemon_form") {
-        addIssue("canonicalEntityType", "pokemon_stats must map to a canonical Pokémon form.");
-      }
-      if (!nonEmpty(entry.externalFormKey)) {
-        addIssue("externalFormKey", "pokemon_stats requires an explicit external form key.");
+    if (!nonEmpty(entry.sourceUrl)) {
+      addIssue("sourceUrl", "Source URL must be non-empty.");
+    } else {
+      try {
+        const url = new URL(entry.sourceUrl);
+        if (url.protocol !== "https:") addIssue("sourceUrl", "Source URL must use HTTPS.");
+      } catch {
+        addIssue("sourceUrl", "Source URL must be a valid absolute URL.");
       }
     }
+    if (!nonEmpty(entry.dataVersion)) addIssue("dataVersion", "Data version must be non-empty.");
 
-    if (entry.domain !== "pokemon_stats" && entry.externalFormKey !== undefined) {
-      addIssue("externalFormKey", "Only pokemon_stats uses an external form key.");
+    const expectedEntity = DOMAIN_ENTITY[entry.domain];
+    if (expectedEntity && entry.canonicalEntityType !== expectedEntity) {
+      addIssue(
+        "canonicalEntityType",
+        `${entry.domain} must map to a canonical ${expectedEntity}.`,
+      );
+    }
+
+    if (FORM_SCOPED_DOMAINS.has(entry.domain)) {
+      if (!nonEmpty(entry.externalFormKey)) {
+        addIssue("externalFormKey", `${entry.domain} requires an explicit external form key.`);
+      }
+    } else if (entry.externalFormKey !== undefined) {
+      addIssue("externalFormKey", "Only form-scoped domains accept an external form key.");
+    }
+
+    if (NUMERIC_ID_DOMAINS.has(entry.domain) && nonEmpty(entry.externalId) &&
+      !/^\\d+$/.test(entry.externalId.trim())) {
+      addIssue("externalId", `${entry.domain} requires a numeric external ID.`);
     }
 
     if (issues.some((issue) => issue.index === index)) return;
@@ -99,7 +126,7 @@ export function validatePoGoApiCrosswalk(
   return { valid, issues };
 }
 
-/** Creates the canonical external identity used by the stats crosswalk. */
+/** Builds the explicit composite identity for stats and form-scoped records. */
 export function buildPoGoApiStatsExternalKey(pokemonId: number, form: string): string {
   return buildPoGoApiFormKey(pokemonId, form);
 }

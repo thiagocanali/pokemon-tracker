@@ -480,3 +480,19 @@ Para movimentos, manter a classificação de compatibilidade como enumeração e
 - O corpo de `current_pokemon_moves.json` ainda não foi inspecionado diretamente nesta auditoria; seu parser permanece bloqueado até haver fixture real e validação dos campos.
 - A revisão de direitos/licença e atribuição continua bloqueadora para persistência ou redistribuição. Nenhuma migration, provider ativo, sincronização ou operação Supabase remota foi executada.
 
+
+
+### Regras adicionais do contrato de crosswalk (2026-11-10)
+
+A validação de crosswalk agora vincula cada domínio à entidade canônica correta:
+
+| Domínio PoGoAPI | Entidade canônica | Identidade externa |
+|---|---|---|
+| `pokemon_stats` | `pokemon_form` | ID numérico + `externalFormKey` explícita |
+| `current_pokemon_moves` | `pokemon_form` | ID numérico + `externalFormKey` explícita |
+| `fast_moves`, `charged_moves` | `move` | ID numérico do movimento |
+| `pvp_fast_moves`, `pvp_charged_moves` | `move` | ID numérico do movimento |
+
+O validador também exige URL absoluta HTTPS e versão/hash não vazios. Isso evita, por exemplo, associar por engano um movimento a uma forma Pokémon, aceitar nome como ID externo numérico ou perder a identidade de forma no contrato de compatibilidade atual.
+
+Essas regras validam a estrutura declarada pelo operador; não provam que o mapeamento semântico está correto. A revisão humana e a reconciliação contra IDs canônicos continuam obrigatórias. Nenhuma fonte foi ativada nem dado foi persistido.
