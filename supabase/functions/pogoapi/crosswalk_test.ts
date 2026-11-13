@@ -104,3 +104,29 @@ Deno.test("does not allow form keys on move domains", () => {
   assertEquals(report.valid, []);
   assertEquals(report.issues[0].field, "externalFormKey");
 });
+
+Deno.test("rejects numeric-looking invalid IDs and accepts positive digit strings", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...statsEntry, externalId: "25" },
+    { ...moveEntry, externalId: "204" },
+    { ...moveEntry, externalId: "20d" },
+    { ...moveEntry, externalId: "-204" },
+  ]);
+  assertEquals(report.valid.length, 2);
+  assertEquals(report.issues.map((issue) => issue.field), ["externalId", "externalId"]);
+});
+
+Deno.test("requires form keys to identify the same Pokémon as the external ID", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...statsEntry, externalFormKey: "26:normal" },
+    { ...statsEntry, externalFormKey: "25:" },
+    { ...statsEntry, externalFormKey: "25:normal" },
+    { ...statsEntry, domain: "current_pokemon_moves", externalFormKey: "999:normal" },
+  ]);
+  assertEquals(report.valid.length, 1);
+  assertEquals(report.issues.map((issue) => issue.field), [
+    "externalFormKey",
+    "externalFormKey",
+    "externalFormKey",
+  ]);
+});
