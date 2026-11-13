@@ -65,6 +65,19 @@ Deno.test("flags duplicate and empty input keys without silently dropping them",
     mappings: [{ externalKey: "move:1", canonicalId: "thunder-shock" }],
     canonicalIds: ["thunder-shock"],
   });
-  assertEquals(report.items.map((item) => item.status), ["matched", "ambiguous", "rejected"]);
-  assertEquals(report.totals, { matched: 1, unmatched: 0, ambiguous: 1, rejected: 1 });
+  assertEquals(report.items.map((item) => item.status), ["ambiguous", "ambiguous", "rejected"]);
+  assertEquals(report.totals, { matched: 0, unmatched: 0, ambiguous: 2, rejected: 1 });
+});
+
+Deno.test("duplicate keys never yield a matched record regardless of ordering", () => {
+  const report = reconcileCrosswalk({
+    externalKeys: ["MOVE:1", "move:2", " move:1 "],
+    mappings: [
+      { externalKey: "move:1", canonicalId: "thunder-shock" },
+      { externalKey: "move:2", canonicalId: "quick-attack" },
+    ],
+    canonicalIds: ["thunder-shock", "quick-attack"],
+  });
+  assertEquals(report.items.map((item) => item.status), ["ambiguous", "matched", "ambiguous"]);
+  assertEquals(report.totals, { matched: 1, unmatched: 0, ambiguous: 2, rejected: 0 });
 });
