@@ -91,7 +91,9 @@ export function validatePoGoApiCrosswalk(
     }
     if (!nonEmpty(entry.dataVersion)) addIssue("dataVersion", "Data version must be non-empty.");
 
-    const expectedEntity = DOMAIN_ENTITY[entry.domain];
+    const expectedEntity = Object.prototype.hasOwnProperty.call(DOMAIN_ENTITY, entry.domain)
+      ? DOMAIN_ENTITY[entry.domain]
+      : undefined;
     if (expectedEntity && entry.canonicalEntityType !== expectedEntity) {
       addIssue(
         "canonicalEntityType",
