@@ -115,7 +115,7 @@ export function validatePoGoApiCrosswalk(
     }
 
     if (NUMERIC_ID_DOMAINS.has(entry.domain) && nonEmpty(entry.externalId) &&
-      /^\\d+$/.test(entry.externalId.trim()) &&
+      /^\d+$/.test(entry.externalId.trim()) &&
       Number.isSafeInteger(Number(entry.externalId.trim())) &&
       Number(entry.externalId.trim()) > 0 &&
       entry.externalId.trim() !== String(Number(entry.externalId.trim()))) {
