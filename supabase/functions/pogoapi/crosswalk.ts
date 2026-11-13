@@ -74,7 +74,7 @@ export function validatePoGoApiCrosswalk(
     const addIssue = (field: string, reason: string) => issues.push({ index, field, reason });
 
     if (entry.providerId !== "pogoapi") addIssue("providerId", "Provider must be pogoapi.");
-    if (!(entry.domain in DOMAIN_ENTITY)) addIssue("domain", "Unsupported PoGoAPI domain.");
+    if (!(Object.prototype.hasOwnProperty.call(DOMAIN_ENTITY, entry.domain))) addIssue("domain", "Unsupported PoGoAPI domain.");
     if (!nonEmpty(entry.externalId)) addIssue("externalId", "External ID must be non-empty.");
     if (!nonEmpty(entry.canonicalEntityId)) {
       addIssue("canonicalEntityId", "Canonical entity ID must be non-empty.");
@@ -108,12 +108,12 @@ export function validatePoGoApiCrosswalk(
     }
 
     if (NUMERIC_ID_DOMAINS.has(entry.domain) && nonEmpty(entry.externalId) &&
-      !/^\d+$/.test(entry.externalId.trim())) {
+      (!/^\d+$/.test(entry.externalId.trim()) || !Number.isSafeInteger(Number(entry.externalId.trim())) || Number(entry.externalId.trim()) <= 0)) {
       addIssue("externalId", `${entry.domain} requires a numeric external ID.`);
     }
 
     if (FORM_SCOPED_DOMAINS.has(entry.domain) && nonEmpty(entry.externalId) &&
-      nonEmpty(entry.externalFormKey) && /^\d+$/.test(entry.externalId.trim())) {
+      nonEmpty(entry.externalFormKey) && /^\d+$/.test(entry.externalId.trim()) && Number.isSafeInteger(Number(entry.externalId.trim())) && Number(entry.externalId.trim()) > 0) {
       const expectedPrefix = `${Number(entry.externalId.trim())}:`;
       const formKey = entry.externalFormKey.trim().toLowerCase();
       if (!formKey.startsWith(expectedPrefix) || formKey.length <= expectedPrefix.length) {
