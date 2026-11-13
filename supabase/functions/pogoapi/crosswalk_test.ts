@@ -130,3 +130,21 @@ Deno.test("requires form keys to identify the same Pokémon as the external ID",
     "externalFormKey",
   ]);
 });
+
+Deno.test("rejects zero and unsafe numeric provider identities", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...moveEntry, externalId: "0" },
+    { ...moveEntry, externalId: "9007199254740992" },
+    { ...moveEntry, externalId: "204" },
+  ]);
+  assertEquals(report.valid.length, 1);
+  assertEquals(report.issues.map((issue) => issue.field), ["externalId", "externalId"]);
+});
+
+Deno.test("rejects inherited object properties as unsupported domains", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...moveEntry, domain: "toString" as typeof moveEntry.domain },
+  ]);
+  assertEquals(report.valid.length, 0);
+  assertEquals(report.issues.map((issue) => issue.field), ["domain"]);
+});
