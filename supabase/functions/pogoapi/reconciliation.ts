@@ -38,7 +38,7 @@ export function buildPoGoApiFormKey(pokemonId: number, form: string): string {
  * Reconciles an externally supplied list against an explicit crosswalk and
  * canonical IDs. It never derives mappings from names or creates entities.
  *
- * Duplicate external keys and canonical-target collisions are marked
+ * All occurrences of duplicate external keys and canonical-target collisions are marked
  * ambiguous. Mappings to missing canonical IDs are rejected.
  */
 export function reconcileCrosswalk(input: {
@@ -64,16 +64,19 @@ export function reconcileCrosswalk(input: {
     externalByCanonical.set(canonicalId, sources);
   }
 
-  const seen = new Set<string>();
+  const frequencies = new Map<string, number>();
+  for (const rawKey of input.externalKeys) {
+    const key = normalizeKey(rawKey);
+    if (key) frequencies.set(key, (frequencies.get(key) ?? 0) + 1);
+  }
   const items = input.externalKeys.map((rawKey): ReconciliationItem => {
     const externalKey = normalizeKey(rawKey);
     if (!externalKey) {
       return { externalKey: rawKey, status: "rejected", canonicalId: null, reason: "External key is empty." };
     }
-    if (seen.has(externalKey)) {
+    if ((frequencies.get(externalKey) ?? 0) > 1) {
       return { externalKey, status: "ambiguous", canonicalId: null, reason: "Duplicate external key in input." };
     }
-    seen.add(externalKey);
 
     const targets = mappingsByExternal.get(externalKey);
     if (!targets?.size) {
