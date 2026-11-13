@@ -108,8 +108,17 @@ export function validatePoGoApiCrosswalk(
     }
 
     if (NUMERIC_ID_DOMAINS.has(entry.domain) && nonEmpty(entry.externalId) &&
-      !/^\\d+$/.test(entry.externalId.trim())) {
+      !/^\d+$/.test(entry.externalId.trim())) {
       addIssue("externalId", `${entry.domain} requires a numeric external ID.`);
+    }
+
+    if (FORM_SCOPED_DOMAINS.has(entry.domain) && nonEmpty(entry.externalId) &&
+      nonEmpty(entry.externalFormKey) && /^\d+$/.test(entry.externalId.trim())) {
+      const expectedPrefix = `${Number(entry.externalId.trim())}:`;
+      const formKey = entry.externalFormKey.trim().toLowerCase();
+      if (!formKey.startsWith(expectedPrefix) || formKey.length <= expectedPrefix.length) {
+        addIssue("externalFormKey", "Form key must match the external Pokémon ID and contain a form.");
+      }
     }
 
     if (issues.some((issue) => issue.index === index)) return;
