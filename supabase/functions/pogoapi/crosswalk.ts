@@ -114,6 +114,14 @@ export function validatePoGoApiCrosswalk(
       addIssue("externalId", `${entry.domain} requires a numeric external ID.`);
     }
 
+    if (NUMERIC_ID_DOMAINS.has(entry.domain) && nonEmpty(entry.externalId) &&
+      /^\\d+$/.test(entry.externalId.trim()) &&
+      Number.isSafeInteger(Number(entry.externalId.trim())) &&
+      Number(entry.externalId.trim()) > 0 &&
+      entry.externalId.trim() !== String(Number(entry.externalId.trim()))) {
+      addIssue("externalId", "External numeric ID must use canonical decimal notation without leading zeros.");
+    }
+
     if (FORM_SCOPED_DOMAINS.has(entry.domain) && nonEmpty(entry.externalId) &&
       nonEmpty(entry.externalFormKey) && /^\d+$/.test(entry.externalId.trim()) && Number.isSafeInteger(Number(entry.externalId.trim())) && Number(entry.externalId.trim()) > 0) {
       const expectedPrefix = `${Number(entry.externalId.trim())}:`;
