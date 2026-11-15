@@ -32,8 +32,16 @@ Backend authorization and integration tests for two separate users; session life
 | --- | --- | --- | --- | --- |
 | P0 | Neon SQL CI isolation | Validated | GitHub Actions #206 | Keep isolated database for tests |
 | P0 | Auth schema, saved teams and constraints | In progress | Actions #207 passed; #210 failed due malformed SQL; commit c993328 repairs DDL | Confirm CI for c993328 |
-| P0 | Authentication API with secure sessions | Pending | Requires server runtime and hashing library | Implement isolated server API and tests |
-| P0 | Per-user authorization | Pending | Existing Supabase RLS cannot be reused unchanged | Add cross-user API integration tests |
+| P0 | Authentication API with secure sessions | In progress | Server-only token hash/session lookup module added; no HTTP routes or credential login yet | Add cookie-based HTTP auth and Argon2id registration/login |
+| P0 | Per-user authorization | In progress | Server-only team repository enforces user ID predicates; Node mock tests added | Add live PostgreSQL two-user integration tests and HTTP handlers |
 | P1 | Port catalog and ingestion schema | Pending | Supabase-specific grants and functions | Inventory remaining migrations |
 | P1 | Frontend cutover | Blocked | Depends on backend parity and staging verification | Keep current Supabase integration intact |
 | P1 | Production release | Blocked | Explicit authorization required | No deploy, merge or destructive operation |
+
+## Server-only repository modules
+
+`server/neon/session.mjs` validates opaque session token format, hashes the token with SHA-256 and resolves only unexpired, unrevoked sessions using a parameterized query.
+
+`server/neon/teams.mjs` accepts a **server-resolved** user object, never a client-provided ownership ID. List, update and delete queries include the user ID predicate; creation assigns the authenticated user. These are database access modules **only**, not HTTP routes or a complete authentication system. The injected `db` must be a trusted server-side PostgreSQL client with parameterized `query(sql, params)` support. The Node tests currently use a mocked database; live database authorization tests remain required.
+
+CI runs `node --test server/neon/*.test.mjs` and the existing independent SQL migration suite. No production cutover has occurred.
