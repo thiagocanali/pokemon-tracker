@@ -12,10 +12,18 @@ begin
   insert into public.app_users(email) values ('one@example.test') returning id into first_user;
   insert into public.app_users(email) values ('two@example.test') returning id into second_user;
 
-  if has_table_privilege('public', 'public.saved_teams', 'SELECT') then
+  if exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public' and table_name = 'saved_teams'
+      and grantee = 'PUBLIC' and privilege_type = 'SELECT'
+  ) then
     raise exception 'PUBLIC must not have access to saved teams';
   end if;
-  if has_schema_privilege('public', 'app_private', 'USAGE') then
+  if exists (
+    select 1 from pg_namespace n
+    cross join lateral aclexplode(coalesce(n.nspacl, acldefault('n', n.nspowner))) a
+    where n.nspname = 'app_private' and a.grantee = 0 and a.privilege_type = 'USAGE'
+  ) then
     raise exception 'PUBLIC must not have access to private auth schema';
   end if;
 
