@@ -31,7 +31,7 @@ Backend authorization and integration tests for two separate users; session life
 | Priority | Task | Status | Evidence / dependency | Next action |
 | --- | --- | --- | --- | --- |
 | P0 | Neon SQL CI isolation | Validated | GitHub Actions #206 | Keep isolated database for tests |
-| P0 | Auth schema, saved teams and constraints | In progress | PR #97; Actions #207 passed on earlier HEAD | Confirm CI for latest HEAD |
+| P0 | Auth schema, saved teams and constraints | In progress | Actions #207 passed; #210 failed due malformed SQL; commit c993328 repairs DDL | Confirm CI for c993328 |
 | P0 | Authentication API with secure sessions | Pending | Requires server runtime and hashing library | Implement isolated server API and tests |
 | P0 | Per-user authorization | Pending | Existing Supabase RLS cannot be reused unchanged | Add cross-user API integration tests |
 | P1 | Port catalog and ingestion schema | Pending | Supabase-specific grants and functions | Inventory remaining migrations |
