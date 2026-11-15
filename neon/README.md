@@ -45,3 +45,16 @@ Backend authorization and integration tests for two separate users; session life
 `server/neon/teams.mjs` accepts a **server-resolved** user object, never a client-provided ownership ID. List, update and delete queries include the user ID predicate; creation assigns the authenticated user. These are database access modules **only**, not HTTP routes or a complete authentication system. The injected `db` must be a trusted server-side PostgreSQL client with parameterized `query(sql, params)` support. The Node tests currently use a mocked database; live database authorization tests remain required.
 
 CI runs `node --test server/neon/*.test.mjs` and the existing independent SQL migration suite. No production cutover has occurred.
+
+## HTTP boundary prototype
+
+`server/neon/http-auth.mjs` implements strict host-only HTTPS cookie formatting and exact HTTPS origin checks for mutating requests. `server/neon/teams-handler.mjs` is a framework-agnostic authenticated request handler for team CRUD with a 4 KiB JSON body limit, no-store response headers, and fail-closed session resolution. Tests cover anonymous access, origin rejection, and user-scoped writes.
+
+**Not yet a deployed API:** No Vercel entrypoint, database adapter, password registration/login, logout, rate limiting or end-to-end database authorization tests exist. The handler must only be mounted behind trusted HTTPS with an explicitly configured allowed origin. No frontend or production switch is authorized.
+
+### Next execution batch
+1. Verify CI for the latest HEAD (including new Node tests).
+2. Implement secure password hashing and credential authentication with dependency/lockfile consistency.
+3. Implement server-side PostgreSQL adapter and deployment-independent HTTP entrypoints.
+4. Add real PostgreSQL cross-user CRUD and session integration tests.
+5. Implement frontend cutover behind a reversible feature flag after backend parity is proven.
