@@ -1,6 +1,7 @@
 \set ON_ERROR_STOP on
 \i neon/migrations/0001_migration_ledger.sql
 \i neon/migrations/0002_auth_identity.sql
+\i neon/migrations/0003_saved_teams.sql
 
 begin;
 do $$
@@ -10,6 +11,27 @@ declare
 begin
   insert into public.app_users(email) values ('one@example.test') returning id into first_user;
   insert into public.app_users(email) values ('two@example.test') returning id into second_user;
+
+  insert into public.saved_teams(user_id, name, pokemon_ids)
+    values (first_user, 'Team A', array[25, 149]::bigint[]);
+  insert into public.saved_teams(user_id, name, pokemon_ids)
+    values (second_user, 'Team B', array[1]::bigint[]);
+  if (select count(*) from public.saved_teams where user_id = first_user) <> 1
+    or (select count(*) from public.saved_teams where user_id = second_user) <> 1 then
+    raise exception 'Team ownership mismatch';
+  end if;
+  begin
+    insert into public.saved_teams(user_id, name, pokemon_ids)
+      values (first_user, 'Invalid', array[0]::bigint[]);
+    raise exception 'Invalid Pokemon ID unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.saved_teams(user_id, name, pokemon_ids)
+      values (gen_random_uuid(), 'Orphan', array[25]::bigint[]);
+    raise exception 'Orphan team unexpectedly accepted';
+  exception when foreign_key_violation then null;
+  end;
 
   insert into app_private.auth_credentials(user_id, password_hash)
     values (first_user, repeat('a', 60));
@@ -43,6 +65,9 @@ begin
   end;
 
   delete from public.app_users where id = first_user;
+  if exists (select 1 from public.saved_teams where user_id = first_user) then
+    raise exception 'User deletion did not cascade to saved teams';
+  end if;
   if exists (select 1 from app_private.auth_credentials where user_id = first_user)
     or exists (select 1 from app_private.auth_sessions where user_id = first_user) then
     raise exception 'User deletion did not cascade to private auth records';
