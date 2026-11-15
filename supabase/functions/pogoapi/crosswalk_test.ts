@@ -158,3 +158,21 @@ Deno.test("rejects leading-zero numeric IDs to avoid duplicate external identiti
   assertEquals(report.valid.length, 1);
   assertEquals(report.issues.map((issue) => issue.field), ["externalId", "externalId"]);
 });
+
+Deno.test("rejects every duplicate identity in the same provider domain", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...moveEntry, externalId: "204" },
+    { ...moveEntry, externalId: " 204 " },
+  ]);
+  assertEquals(report.valid.length, 0);
+  assertEquals(report.issues.map((issue) => issue.field), ["externalId", "externalId"]);
+});
+
+Deno.test("does not confuse identical numeric IDs in different move domains", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...moveEntry, domain: "fast_moves", externalId: "204" },
+    { ...moveEntry, domain: "charged_moves", externalId: "204" },
+  ]);
+  assertEquals(report.valid.length, 2);
+  assertEquals(report.issues, []);
+});
