@@ -58,3 +58,12 @@ CI runs `node --test server/neon/*.test.mjs` and the existing independent SQL mi
 3. Implement server-side PostgreSQL adapter and deployment-independent HTTP entrypoints.
 4. Add real PostgreSQL cross-user CRUD and session integration tests.
 5. Implement frontend cutover behind a reversible feature flag after backend parity is proven.
+
+## Password and account lifecycle implementation (server-only prototype)
+
+- `passwords.mjs` uses Node's built-in scrypt with random 16-byte salts, versioned parameters and timing-safe verification. The format is stored in `auth_credentials.password_hash`.
+- `auth-service.mjs` provides transactional account creation, one-time email verification, verified-account login, opaque random sessions (32 bytes) stored only as SHA-256 hashes, and session revocation.
+- `auth-handler.mjs` provides a framework-agnostic POST handler for registration, verification, login and logout. It uses the host-only secure cookie helper and does not return raw session or verification tokens to the browser; verification delivery is injected as a trusted server-side callback.
+- `*.test.mjs` covers password hashing, account lifecycle and handler response boundaries; the existing CI Node test glob picks up these tests.
+
+**Important outstanding production requirements:** no HTTP framework/serverless entrypoint or PostgreSQL driver/pool is wired; verification email delivery is not configured; rate limiting, abuse controls, password reset, monitoring and deployment secrets are not configured. The registration endpoint must be protected by rate limiting before public exposure. Tests currently use mocked PostgreSQL clients; live PostgreSQL transaction/concurrency and full end-to-end tests are still required. Do not expose these handlers until a real trusted DB adapter and runtime are added. The Vue app remains on Supabase; no cutover, merge or production deployment has occurred.
