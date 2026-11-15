@@ -48,6 +48,25 @@ begin
   exception when foreign_key_violation then null;
   end;
 
+  begin
+    insert into public.saved_teams(user_id, name, pokemon_ids)
+      values (first_user, 'Null ID', array[25, null]::bigint[]);
+    raise exception 'Null Pokemon ID unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.saved_teams(user_id, name, pokemon_ids)
+      values (first_user, 'Too many', array[1, 2, 3, 4, 5, 6, 7]::bigint[]);
+    raise exception 'Oversized team unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.saved_teams(user_id, name, pokemon_ids)
+      values (first_user, 'Empty', array[]::bigint[]);
+    raise exception 'Empty team unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+
   insert into app_private.auth_credentials(user_id, password_hash)
     values (first_user, repeat('a', 60));
   insert into app_private.auth_sessions(user_id, token_hash, expires_at)
