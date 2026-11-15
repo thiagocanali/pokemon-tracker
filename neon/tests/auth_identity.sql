@@ -12,6 +12,13 @@ begin
   insert into public.app_users(email) values ('one@example.test') returning id into first_user;
   insert into public.app_users(email) values ('two@example.test') returning id into second_user;
 
+  if has_table_privilege('public', 'public.saved_teams', 'SELECT') then
+    raise exception 'PUBLIC must not have access to saved teams';
+  end if;
+  if has_schema_privilege('public', 'app_private', 'USAGE') then
+    raise exception 'PUBLIC must not have access to private auth schema';
+  end if;
+
   insert into public.saved_teams(user_id, name, pokemon_ids)
     values (first_user, 'Team A', array[25, 149]::bigint[]);
   insert into public.saved_teams(user_id, name, pokemon_ids)
