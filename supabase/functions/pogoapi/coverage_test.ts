@@ -1,5 +1,5 @@
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { summarizeReconciliationCoverage } from "./coverage.ts";
+import { assertEquals, assertThrows } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { summarizeCoverageByDomain, summarizeReconciliationCoverage } from "./coverage.ts";
 import { reconcileCrosswalk } from "./reconciliation.ts";
 
 Deno.test("reports coverage from a read-only reconciliation without claiming full GO coverage", () => {
@@ -47,4 +47,42 @@ Deno.test("duplicates count as review items rather than coverage", () => {
     coveragePercent: 33.33,
     requiresReview: 2,
   });
+});
+
+Deno.test("summarizes independently per domain without implying complete dataset coverage", () => {
+  const report = reconcileCrosswalk({
+    externalKeys: ["25:normal", "26:normal", "move:204"],
+    mappings: [
+      { externalKey: "25:normal", canonicalId: "pikachu-normal" },
+      { externalKey: "move:204", canonicalId: "thunder-shock" },
+    ],
+    canonicalIds: ["pikachu-normal", "thunder-shock"],
+  });
+  const result = summarizeCoverageByDomain(report, [
+    "pokemon_stats", "pokemon_stats", "fast_moves",
+  ]);
+  assertEquals(result.pokemon_stats?.coveragePercent, 50);
+  assertEquals(result.pokemon_stats?.requiresReview, 1);
+  assertEquals(result.fast_moves?.coveragePercent, 100);
+  assertEquals(result.fast_moves?.total, 1);
+});
+
+Deno.test("rejects missing and empty domain labels", () => {
+  const report = reconcileCrosswalk({
+    externalKeys: ["25:normal"],
+    mappings: [],
+    canonicalIds: [],
+  });
+  assertThrows(() => summarizeCoverageByDomain(report, []), Error, "exactly one domain");
+  assertThrows(() => summarizeCoverageByDomain(report, [" "]), Error, "non-empty");
+});
+
+Deno.test("does not confuse inherited domain names with object properties", () => {
+  const report = reconcileCrosswalk({
+    externalKeys: ["move:204"],
+    mappings: [],
+    canonicalIds: [],
+  });
+  const result = summarizeCoverageByDomain(report, ["toString"]);
+  assertEquals(result.toString?.unmatched, 1);
 });
