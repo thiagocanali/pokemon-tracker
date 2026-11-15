@@ -16,7 +16,7 @@ export function buildReconciliationReviewQueue(report: ReconciliationReport): Re
   const byStatus = { unmatched: 0, ambiguous: 0, rejected: 0 };
   report.items.forEach((item, index) => {
     if (item.status === "matched") return;
-    if (!(item.status in byStatus)) {
+    if (!Object.prototype.hasOwnProperty.call(byStatus, item.status)) {
       throw new Error("Unsupported reconciliation status.");
     }
     items.push({ ...item, index });
