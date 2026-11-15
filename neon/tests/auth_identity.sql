@@ -1,8 +1,8 @@
 \set ON_ERROR_STOP on
-begin;
 \i neon/migrations/0001_migration_ledger.sql
 \i neon/migrations/0002_auth_identity.sql
 
+begin;
 do $$
 declare
   first_user uuid;
