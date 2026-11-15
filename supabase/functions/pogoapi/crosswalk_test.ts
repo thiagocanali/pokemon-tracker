@@ -148,3 +148,13 @@ Deno.test("rejects inherited object properties as unsupported domains", () => {
   assertEquals(report.valid.length, 0);
   assertEquals(report.issues.map((issue) => issue.field), ["domain"]);
 });
+
+Deno.test("rejects leading-zero numeric IDs to avoid duplicate external identities", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...moveEntry, externalId: "0204" },
+    { ...statsEntry, externalId: "025" },
+    { ...moveEntry, externalId: "204" },
+  ]);
+  assertEquals(report.valid.length, 1);
+  assertEquals(report.issues.map((issue) => issue.field), ["externalId", "externalId"]);
+});
