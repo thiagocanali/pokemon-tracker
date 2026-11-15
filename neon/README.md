@@ -25,3 +25,15 @@ CI executes `neon/tests/auth_identity.sql` on an ephemeral PostgreSQL service an
 ## Release gates
 
 Backend authorization and integration tests for two separate users; session lifecycle tests; complete migration of client Supabase calls; schema parity and provenance checks; staging preview validation; documented rollback; explicit approval before production cutover.
+
+## Living task tracker (2026-11-15)
+
+| Priority | Task | Status | Evidence / dependency | Next action |
+| --- | --- | --- | --- | --- |
+| P0 | Neon SQL CI isolation | Validated | GitHub Actions #206 | Keep isolated database for tests |
+| P0 | Auth schema, saved teams and constraints | In progress | PR #97; Actions #207 passed on earlier HEAD | Confirm CI for latest HEAD |
+| P0 | Authentication API with secure sessions | Pending | Requires server runtime and hashing library | Implement isolated server API and tests |
+| P0 | Per-user authorization | Pending | Existing Supabase RLS cannot be reused unchanged | Add cross-user API integration tests |
+| P1 | Port catalog and ingestion schema | Pending | Supabase-specific grants and functions | Inventory remaining migrations |
+| P1 | Frontend cutover | Blocked | Depends on backend parity and staging verification | Keep current Supabase integration intact |
+| P1 | Production release | Blocked | Explicit authorization required | No deploy, merge or destructive operation |
