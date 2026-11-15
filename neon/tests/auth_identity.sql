@@ -74,6 +74,25 @@ begin
   insert into app_private.auth_tokens(user_id, purpose, token_hash, expires_at)
     values (second_user, 'password_reset', repeat('c', 64), now() + interval '1 hour');
 
+  begin
+    insert into app_private.auth_sessions(user_id, token_hash, expires_at)
+      values (first_user, repeat('Z', 64), now() + interval '1 hour');
+    raise exception 'Invalid session token hash unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into app_private.auth_tokens(user_id, purpose, token_hash, expires_at)
+      values (first_user, 'password_reset', repeat('g', 64), now() + interval '1 hour');
+    raise exception 'Invalid reset token hash unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into app_private.auth_tokens(user_id, purpose, token_hash, expires_at)
+      values (first_user, 'arbitrary', repeat('d', 64), now() + interval '1 hour');
+    raise exception 'Invalid token purpose unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+
   if (select count(*) from public.app_users) <> 2 then
     raise exception 'Expected two isolated users';
   end if;
