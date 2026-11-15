@@ -49,7 +49,10 @@ jobs:
       - name: Install PostgreSQL client
         run: sudo apt-get install -y postgresql-client
       - name: Validate independent Neon authentication schema
-        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f neon/tests/auth_identity.sql
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "create database neon_auth_test"
+          NEON_TEST_DATABASE_URL="${DATABASE_URL%/*}/neon_auth_test"
+          psql "$NEON_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f neon/tests/auth_identity.sql
       - name: Bootstrap minimal Supabase auth roles
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql
       - name: Apply migrations to disposable PostgreSQL
