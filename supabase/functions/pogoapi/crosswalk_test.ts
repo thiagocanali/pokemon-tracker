@@ -158,3 +158,11 @@ Deno.test("rejects leading-zero numeric IDs to avoid duplicate external identiti
   assertEquals(report.valid.length, 1);
   assertEquals(report.issues.map((issue) => issue.field), ["externalId", "externalId"]);
 });
+
+Deno.test("normalizes validated Pokémon form keys for stable downstream identities", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...statsEntry, externalFormKey: " 25:NoRmAl " },
+  ]);
+  assertEquals(report.issues, []);
+  assertEquals(report.valid[0].externalFormKey, "25:normal");
+});
