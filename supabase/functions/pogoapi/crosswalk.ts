@@ -70,8 +70,21 @@ export function validatePoGoApiCrosswalk(
   const valid: PoGoApiCrosswalkEntry[] = [];
   const issues: CrosswalkValidationIssue[] = [];
 
+  const identities = new Map<string, number[]>();
+  entries.forEach((entry, index) => {
+    const identity = `${entry.domain}\u0000${entry.externalId?.trim()}\u0000${entry.externalFormKey?.trim().toLowerCase() ?? ""}`;
+    const indices = identities.get(identity) ?? [];
+    indices.push(index);
+    identities.set(identity, indices);
+  });
+
   entries.forEach((entry, index) => {
     const addIssue = (field: string, reason: string) => issues.push({ index, field, reason });
+
+    const identity = `${entry.domain}\u0000${entry.externalId?.trim()}\u0000${entry.externalFormKey?.trim().toLowerCase() ?? ""}`;
+    if ((identities.get(identity)?.length ?? 0) > 1) {
+      addIssue("externalId", "Duplicate external identity within the same PoGoAPI domain.");
+    }
 
     if (entry.providerId !== "pogoapi") addIssue("providerId", "Provider must be pogoapi.");
     if (!(Object.prototype.hasOwnProperty.call(DOMAIN_ENTITY, entry.domain))) addIssue("domain", "Unsupported PoGoAPI domain.");
