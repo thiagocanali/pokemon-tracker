@@ -135,7 +135,7 @@ export function validatePoGoApiCrosswalk(
     valid.push({
       ...entry,
       externalId: entry.externalId.trim(),
-      ...(entry.externalFormKey !== undefined ? { externalFormKey: entry.externalFormKey.trim() } : {}),
+      ...(entry.externalFormKey !== undefined ? { externalFormKey: entry.externalFormKey.trim().toLowerCase() } : {}),
       canonicalEntityId: entry.canonicalEntityId.trim(),
       sourceUrl: entry.sourceUrl.trim(),
       dataVersion: entry.dataVersion.trim(),
