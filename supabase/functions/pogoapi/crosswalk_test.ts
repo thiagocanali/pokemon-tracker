@@ -170,7 +170,7 @@ Deno.test("rejects provider URLs containing embedded credentials", () => {
 Deno.test("rejects local provider hostnames", () => {
   const report = validatePoGoApiCrosswalk([
     { ...moveEntry, sourceUrl: "https://localhost/api/v1/fast_moves.json" },
-    { ...moveEntry, sourceUrl: "https://internal.localhost/api/v1/fast_moves.json" },
+    { ...moveEntry, externalId: "205", sourceUrl: "https://internal.localhost/api/v1/fast_moves.json" },
   ]);
   assertEquals(report.valid.length, 0);
   assertEquals(report.issues.map((issue) => issue.field), ["sourceUrl", "sourceUrl"]);
