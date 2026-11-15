@@ -40,4 +40,6 @@ Deno.test("rejects unsupported statuses rather than silently excluding them", ()
   const report = reconcileCrosswalk({ externalKeys: ["missing"], mappings: [], canonicalIds: [] });
   report.items[0].status = "unknown" as typeof report.items[0]["status"];
   assertThrows(() => buildReconciliationReviewQueue(report), Error, "Unsupported reconciliation status");
+  report.items[0].status = "toString" as typeof report.items[0]["status"];
+  assertThrows(() => buildReconciliationReviewQueue(report), Error, "Unsupported reconciliation status");
 });
