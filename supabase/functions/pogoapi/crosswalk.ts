@@ -69,6 +69,7 @@ export function validatePoGoApiCrosswalk(
 ): CrosswalkValidationReport {
   const valid: PoGoApiCrosswalkEntry[] = [];
   const issues: CrosswalkValidationIssue[] = [];
+  const acceptedIndices: number[] = [];
 
   entries.forEach((entry, index) => {
     const addIssue = (field: string, reason: string) => issues.push({ index, field, reason });
@@ -132,6 +133,7 @@ export function validatePoGoApiCrosswalk(
     }
 
     if (issues.some((issue) => issue.index === index)) return;
+    acceptedIndices.push(index);
     valid.push({
       ...entry,
       externalId: entry.externalId.trim(),
@@ -142,7 +144,33 @@ export function validatePoGoApiCrosswalk(
     });
   });
 
-  return { valid, issues };
+  // Duplicate provider identities are ambiguous, even with identical targets.
+  const identityIndices = new Map<string, number[]>();
+  valid.forEach((entry, position) => {
+    const externalKey = FORM_SCOPED_DOMAINS.has(entry.domain)
+      ? entry.externalFormKey!.trim().toLowerCase()
+      : entry.externalId.trim();
+    const identity = JSON.stringify([entry.providerId, entry.domain, externalKey]);
+    const indices = identityIndices.get(identity) ?? [];
+    indices.push(acceptedIndices[position]);
+    identityIndices.set(identity, indices);
+  });
+  const duplicateIndices = new Set<number>();
+  for (const indices of identityIndices.values()) {
+    if (indices.length <= 1) continue;
+    for (const index of indices) {
+      duplicateIndices.add(index);
+      issues.push({
+        index,
+        field: "externalId",
+        reason: "Duplicate provider identity within the same domain.",
+      });
+    }
+  }
+  return {
+    valid: valid.filter((_, position) => !duplicateIndices.has(acceptedIndices[position])),
+    issues: issues.sort((a, b) => a.index - b.index),
+  };
 }
 
 /** Builds the explicit composite identity for stats and form-scoped records. */
