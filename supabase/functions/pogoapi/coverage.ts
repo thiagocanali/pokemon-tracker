@@ -1,3 +1,4 @@
+import type { PoGoApiCrosswalkDomain } from "./crosswalk.ts";
 import type { ReconciliationReport, ReconciliationStatus } from "./reconciliation.ts";
 
 export type CoverageSummary = {
@@ -41,25 +42,33 @@ export function summarizeReconciliationCoverage(
  * Each input index must have a domain; otherwise the report would be misleading.
  * This function does not fetch or persist provider data.
  */
-export function summarizeCoverageByDomain<Domain extends string>(
+const VALID_DOMAINS = new Set<PoGoApiCrosswalkDomain>([
+  "pokemon_stats", "fast_moves", "charged_moves",
+  "pvp_fast_moves", "pvp_charged_moves", "current_pokemon_moves",
+]);
+
+export function summarizeCoverageByDomain(
   report: ReconciliationReport,
-  domains: readonly Domain[],
-): Partial<Record<Domain, CoverageSummary>> {
+  domains: readonly PoGoApiCrosswalkDomain[],
+): Partial<Record<PoGoApiCrosswalkDomain, CoverageSummary>> {
   if (domains.length !== report.items.length) {
     throw new Error("Each reconciliation item requires exactly one domain.");
   }
-  const grouped = new Map<Domain, ReconciliationReport["items"]>();
+  const grouped = new Map<PoGoApiCrosswalkDomain, ReconciliationReport["items"]>();
   report.items.forEach((item, index) => {
     const domain = domains[index];
     if (typeof domain !== "string" || !domain.trim()) {
       throw new Error("Domain must be a non-empty string.");
     }
-    const normalized = domain.trim() as Domain;
+    const normalized = domain.trim() as PoGoApiCrosswalkDomain;
+    if (!VALID_DOMAINS.has(normalized)) {
+      throw new Error(`Unsupported PoGoAPI domain: ${normalized}`);
+    }
     const items = grouped.get(normalized) ?? [];
     items.push(item);
     grouped.set(normalized, items);
   });
-  const summaries: Partial<Record<Domain, CoverageSummary>> = Object.create(null);
+  const summaries: Partial<Record<PoGoApiCrosswalkDomain, CoverageSummary>> = Object.create(null);
   for (const [domain, items] of grouped) {
     summaries[domain] = summarizeReconciliationCoverage({
       items,

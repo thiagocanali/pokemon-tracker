@@ -74,15 +74,18 @@ Deno.test("rejects missing and empty domain labels", () => {
     canonicalIds: [],
   });
   assertThrows(() => summarizeCoverageByDomain(report, []), Error, "exactly one domain");
-  assertThrows(() => summarizeCoverageByDomain(report, [" "]), Error, "non-empty");
+  assertThrows(() => summarizeCoverageByDomain(report, [" " as "fast_moves"]), Error, "non-empty");
 });
 
-Deno.test("does not confuse inherited domain names with object properties", () => {
+Deno.test("rejects inherited and unsupported domain names", () => {
   const report = reconcileCrosswalk({
     externalKeys: ["move:204"],
     mappings: [],
     canonicalIds: [],
   });
-  const result = summarizeCoverageByDomain(report, ["toString"]);
-  assertEquals(result.toString?.unmatched, 1);
+  assertThrows(
+    () => summarizeCoverageByDomain(report, ["toString" as "fast_moves"]),
+    Error,
+    "Unsupported PoGoAPI domain",
+  );
 });
