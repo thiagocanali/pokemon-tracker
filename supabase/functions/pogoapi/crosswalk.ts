@@ -86,6 +86,12 @@ export function validatePoGoApiCrosswalk(
       try {
         const url = new URL(entry.sourceUrl);
         if (url.protocol !== "https:") addIssue("sourceUrl", "Source URL must use HTTPS.");
+        if (url.username || url.password) {
+          addIssue("sourceUrl", "Source URL must not contain embedded credentials.");
+        }
+        if (!url.hostname || url.hostname === "localhost" || url.hostname.endsWith(".localhost")) {
+          addIssue("sourceUrl", "Source URL must use a public provider hostname.");
+        }
       } catch {
         addIssue("sourceUrl", "Source URL must be a valid absolute URL.");
       }
