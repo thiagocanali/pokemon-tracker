@@ -181,3 +181,22 @@ Deno.test("allows the same numeric ID in separate move domains", () => {
   assertEquals(report.issues, []);
   assertEquals(report.valid.length, 3);
 });
+
+Deno.test("normalizes reviewed form keys to canonical lowercase", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...statsEntry, externalFormKey: "25:Normal" },
+  ]);
+  assertEquals(report.issues, []);
+  assertEquals(report.valid[0].externalFormKey, "25:normal");
+});
+
+Deno.test("rejects whitespace inside form identity tokens", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...statsEntry, externalFormKey: "25:normal form" },
+    { ...statsEntry, externalFormKey: "25: normal" },
+  ]);
+  assertEquals(report.valid, []);
+  assertEquals(report.issues.map((issue) => issue.field), [
+    "externalFormKey", "externalFormKey",
+  ]);
+});
