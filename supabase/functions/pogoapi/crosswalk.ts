@@ -127,7 +127,9 @@ export function validatePoGoApiCrosswalk(
       nonEmpty(entry.externalFormKey) && /^\d+$/.test(entry.externalId.trim()) && Number.isSafeInteger(Number(entry.externalId.trim())) && Number(entry.externalId.trim()) > 0) {
       const expectedPrefix = `${Number(entry.externalId.trim())}:`;
       const formKey = entry.externalFormKey.trim().toLowerCase();
-      if (!formKey.startsWith(expectedPrefix) || formKey.length <= expectedPrefix.length) {
+      if (!formKey.startsWith(expectedPrefix) || formKey.length <= expectedPrefix.length ||
+        formKey.slice(expectedPrefix.length).trim() !== formKey.slice(expectedPrefix.length) ||
+        /\\s/.test(formKey.slice(expectedPrefix.length))) {
         addIssue("externalFormKey", "Form key must match the external Pokémon ID and contain a form.");
       }
     }
@@ -137,7 +139,7 @@ export function validatePoGoApiCrosswalk(
     valid.push({
       ...entry,
       externalId: entry.externalId.trim(),
-      ...(entry.externalFormKey !== undefined ? { externalFormKey: entry.externalFormKey.trim() } : {}),
+      ...(entry.externalFormKey !== undefined ? { externalFormKey: entry.externalFormKey.trim().toLowerCase() } : {}),
       canonicalEntityId: entry.canonicalEntityId.trim(),
       sourceUrl: entry.sourceUrl.trim(),
       dataVersion: entry.dataVersion.trim(),
