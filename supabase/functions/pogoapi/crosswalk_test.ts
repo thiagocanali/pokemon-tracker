@@ -200,3 +200,20 @@ Deno.test("rejects whitespace inside form identity tokens", () => {
     "externalFormKey", "externalFormKey",
   ]);
 });
+
+Deno.test("rejects provider URLs containing embedded credentials", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...moveEntry, sourceUrl: "https://user:secret@pogoapi.net/api/v1/fast_moves.json" },
+  ]);
+  assertEquals(report.valid.length, 0);
+  assertEquals(report.issues.map((issue) => issue.field), ["sourceUrl"]);
+});
+
+Deno.test("rejects local provider hostnames", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...moveEntry, sourceUrl: "https://localhost/api/v1/fast_moves.json" },
+    { ...moveEntry, externalId: "205", sourceUrl: "https://internal.localhost/api/v1/fast_moves.json" },
+  ]);
+  assertEquals(report.valid.length, 0);
+  assertEquals(report.issues.map((issue) => issue.field), ["sourceUrl", "sourceUrl"]);
+});
