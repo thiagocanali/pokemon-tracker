@@ -89,8 +89,9 @@ export function validatePoGoApiCrosswalk(
         if (url.username || url.password) {
           addIssue("sourceUrl", "Source URL must not contain embedded credentials.");
         }
-        if (!url.hostname || url.hostname === "localhost" || url.hostname.endsWith(".localhost")) {
-          addIssue("sourceUrl", "Source URL must use a public provider hostname.");
+        if (!url.hostname || url.hostname === "localhost" || url.hostname.endsWith(".localhost") ||
+          /^\d{1,3}(?:\.\d{1,3}){3}$/.test(url.hostname) || url.hostname.startsWith("[")) {
+          addIssue("sourceUrl", "Source URL must use a public DNS hostname, not localhost or an IP address.");
         }
       } catch {
         addIssue("sourceUrl", "Source URL must be a valid absolute URL.");

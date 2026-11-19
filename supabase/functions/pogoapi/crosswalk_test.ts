@@ -217,3 +217,15 @@ Deno.test("rejects local provider hostnames", () => {
   assertEquals(report.valid.length, 0);
   assertEquals(report.issues.map((issue) => issue.field), ["sourceUrl", "sourceUrl"]);
 });
+
+Deno.test("rejects IPv4 and IPv6 literal provider origins", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...moveEntry, sourceUrl: "https://127.0.0.1/api/v1/fast_moves.json" },
+    { ...moveEntry, externalId: "205", sourceUrl: "https://192.168.1.10/api/v1/fast_moves.json" },
+    { ...moveEntry, externalId: "206", sourceUrl: "https://[::1]/api/v1/fast_moves.json" },
+  ]);
+  assertEquals(report.valid, []);
+  assertEquals(report.issues.map((issue) => issue.field), [
+    "sourceUrl", "sourceUrl", "sourceUrl",
+  ]);
+});
