@@ -86,6 +86,9 @@ export function validatePoGoApiCrosswalk(
       try {
         const url = new URL(entry.sourceUrl);
         if (url.protocol !== "https:") addIssue("sourceUrl", "Source URL must use HTTPS.");
+        if (url.hash) {
+          addIssue("sourceUrl", "Source URL must not contain a fragment identifier.");
+        }
         if (url.username || url.password) {
           addIssue("sourceUrl", "Source URL must not contain embedded credentials.");
         }
