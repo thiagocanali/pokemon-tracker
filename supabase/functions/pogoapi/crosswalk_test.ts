@@ -229,3 +229,15 @@ Deno.test("rejects IPv4 and IPv6 literal provider origins", () => {
     "sourceUrl", "sourceUrl", "sourceUrl",
   ]);
 });
+
+Deno.test("rejects extra separators in Pokémon form keys", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...statsEntry, externalFormKey: "25:normal:variant" },
+    { ...statsEntry, externalFormKey: "25::normal" },
+    { ...statsEntry, externalFormKey: "25:normal" },
+  ]);
+  assertEquals(report.valid.length, 1);
+  assertEquals(report.issues.map((issue) => issue.field), [
+    "externalFormKey", "externalFormKey",
+  ]);
+});
