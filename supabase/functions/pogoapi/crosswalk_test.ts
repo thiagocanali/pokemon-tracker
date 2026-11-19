@@ -257,3 +257,13 @@ Deno.test("rejects non-public and reserved DNS source hostnames", () => {
   assertEquals(report.valid, []);
   assertEquals(report.issues.map((issue) => issue.field), urls.map(() => "sourceUrl"));
 });
+
+Deno.test("rejects source URL fragments while preserving query parameters", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...moveEntry, sourceUrl: "https://pogoapi.net/api/v1/fast_moves.json#stale" },
+    { ...moveEntry, externalId: "205", sourceUrl: "https://pogoapi.net/api/v1/fast_moves.json?version=1" },
+  ]);
+  assertEquals(report.valid.length, 1);
+  assertEquals(report.valid[0].externalId, "205");
+  assertEquals(report.issues.map((issue) => issue.field), ["sourceUrl"]);
+});
