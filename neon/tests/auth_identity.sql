@@ -1,0 +1,144 @@
+\set ON_ERROR_STOP on
+\i neon/migrations/0001_migration_ledger.sql
+\i neon/migrations/0002_auth_identity.sql
+\i neon/migrations/0003_saved_teams.sql
+
+-- Validate effective privileges of a disposable unprivileged role.
+-- A privilege check is deterministic without changing the role of the test runner.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'neon_auth_ci_browser') THEN
+    CREATE ROLE neon_auth_ci_browser NOLOGIN;
+  END IF;
+  IF has_table_privilege('neon_auth_ci_browser', 'public.saved_teams', 'SELECT') THEN
+    RAISE EXCEPTION 'Browser role unexpectedly has SELECT on saved teams';
+  END IF;
+  IF has_schema_privilege('neon_auth_ci_browser', 'app_private', 'USAGE') THEN
+    RAISE EXCEPTION 'Browser role unexpectedly has USAGE on private auth schema';
+  END IF;
+END $$;
+
+begin;
+do $$
+declare
+  first_user uuid;
+  second_user uuid;
+begin
+  insert into public.app_users(email) values ('one@example.test') returning id into first_user;
+  insert into public.app_users(email) values ('two@example.test') returning id into second_user;
+
+  if exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public' and table_name = 'saved_teams'
+      and grantee = 'PUBLIC' and privilege_type = 'SELECT'
+  ) then
+    raise exception 'PUBLIC must not have access to saved teams';
+  end if;
+  if exists (
+    select 1 from pg_namespace n
+    cross join lateral aclexplode(coalesce(n.nspacl, acldefault('n', n.nspowner))) a
+    where n.nspname = 'app_private' and a.grantee = 0 and a.privilege_type = 'USAGE'
+  ) then
+    raise exception 'PUBLIC must not have access to private auth schema';
+  end if;
+
+  insert into public.saved_teams(user_id, name, pokemon_ids)
+    values (first_user, 'Team A', array[25, 149]::bigint[]);
+  insert into public.saved_teams(user_id, name, pokemon_ids)
+    values (second_user, 'Team B', array[1]::bigint[]);
+  if (select count(*) from public.saved_teams where user_id = first_user) <> 1
+    or (select count(*) from public.saved_teams where user_id = second_user) <> 1 then
+    raise exception 'Team ownership mismatch';
+  end if;
+  begin
+    insert into public.saved_teams(user_id, name, pokemon_ids)
+      values (first_user, 'Invalid', array[0]::bigint[]);
+    raise exception 'Invalid Pokemon ID unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.saved_teams(user_id, name, pokemon_ids)
+      values (gen_random_uuid(), 'Orphan', array[25]::bigint[]);
+    raise exception 'Orphan team unexpectedly accepted';
+  exception when foreign_key_violation then null;
+  end;
+
+  begin
+    insert into public.saved_teams(user_id, name, pokemon_ids)
+      values (first_user, 'Null ID', array[25, null]::bigint[]);
+    raise exception 'Null Pokemon ID unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.saved_teams(user_id, name, pokemon_ids)
+      values (first_user, 'Too many', array[1, 2, 3, 4, 5, 6, 7]::bigint[]);
+    raise exception 'Oversized team unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.saved_teams(user_id, name, pokemon_ids)
+      values (first_user, 'Empty', array[]::bigint[]);
+    raise exception 'Empty team unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+
+  insert into app_private.auth_credentials(user_id, password_hash)
+    values (first_user, repeat('a', 60));
+  insert into app_private.auth_sessions(user_id, token_hash, expires_at)
+    values (first_user, repeat('b', 64), now() + interval '1 hour');
+  insert into app_private.auth_tokens(user_id, purpose, token_hash, expires_at)
+    values (second_user, 'password_reset', repeat('c', 64), now() + interval '1 hour');
+
+  begin
+    insert into app_private.auth_sessions(user_id, token_hash, expires_at)
+      values (first_user, repeat('Z', 64), now() + interval '1 hour');
+    raise exception 'Invalid session token hash unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into app_private.auth_tokens(user_id, purpose, token_hash, expires_at)
+      values (first_user, 'password_reset', repeat('g', 64), now() + interval '1 hour');
+    raise exception 'Invalid reset token hash unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into app_private.auth_tokens(user_id, purpose, token_hash, expires_at)
+      values (first_user, 'arbitrary', repeat('d', 64), now() + interval '1 hour');
+    raise exception 'Invalid token purpose unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+
+  if (select count(*) from public.app_users) <> 2 then
+    raise exception 'Expected two isolated users';
+  end if;
+  if (select count(*) from app_private.auth_sessions where user_id = second_user) <> 0 then
+    raise exception 'Session owner mismatch';
+  end if;
+
+  begin
+    insert into public.app_users(email) values ('ONE@example.test');
+    raise exception 'Noncanonical email unexpectedly accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.app_users(email) values ('one@example.test');
+    raise exception 'Duplicate email unexpectedly accepted';
+  exception when unique_violation then null;
+  end;
+  begin
+    insert into app_private.auth_sessions(user_id, token_hash, expires_at)
+      values (gen_random_uuid(), repeat('d', 64), now() + interval '1 hour');
+    raise exception 'Orphan session unexpectedly accepted';
+  exception when foreign_key_violation then null;
+  end;
+
+  delete from public.app_users where id = first_user;
+  if exists (select 1 from public.saved_teams where user_id = first_user) then
+    raise exception 'User deletion did not cascade to saved teams';
+  end if;
+  if exists (select 1 from app_private.auth_credentials where user_id = first_user)
+    or exists (select 1 from app_private.auth_sessions where user_id = first_user) then
+    raise exception 'User deletion did not cascade to private auth records';
+  end if;
+end $$;
+rollback;
