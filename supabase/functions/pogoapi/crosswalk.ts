@@ -90,7 +90,7 @@ export function validatePoGoApiCrosswalk(
           addIssue("sourceUrl", "Source URL must not contain embedded credentials.");
         }
         if (!url.hostname || url.hostname === "localhost" || url.hostname.endsWith(".localhost") ||
-          /^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(url.hostname) || url.hostname.startsWith("[")) {
+          /^\d{1,3}(?:\.\d{1,3}){3}$/.test(url.hostname) || url.hostname.startsWith("[")) {
           addIssue("sourceUrl", "Source URL must use a public DNS hostname, not localhost or an IP address.");
         }
       } catch {
