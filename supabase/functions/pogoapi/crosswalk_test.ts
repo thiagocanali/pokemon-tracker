@@ -267,3 +267,14 @@ Deno.test("rejects source URL fragments while preserving query parameters", () =
   assertEquals(report.valid[0].externalId, "205");
   assertEquals(report.issues.map((issue) => issue.field), ["sourceUrl"]);
 });
+
+Deno.test("rejects reserved DNS hostnames with a trailing root dot", () => {
+  const report = validatePoGoApiCrosswalk([
+    { ...moveEntry, sourceUrl: "https://localhost./api/v1/fast_moves.json" },
+    { ...moveEntry, externalId: "205", sourceUrl: "https://source.internal./api/v1/fast_moves.json" },
+    { ...moveEntry, externalId: "206", sourceUrl: "https://pogoapi.net./api/v1/fast_moves.json" },
+  ]);
+  assertEquals(report.valid.length, 1);
+  assertEquals(report.valid[0].externalId, "206");
+  assertEquals(report.issues.map((issue) => issue.field), ["sourceUrl", "sourceUrl"]);
+});
