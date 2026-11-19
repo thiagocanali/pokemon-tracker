@@ -19,7 +19,7 @@ BEGIN
 END $$;
 
 begin;
-do $
+do $$
 declare
   first_user uuid;
   second_user uuid;
