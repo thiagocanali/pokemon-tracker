@@ -136,7 +136,8 @@ export function validatePoGoApiCrosswalk(
       const formKey = entry.externalFormKey.trim().toLowerCase();
       if (!formKey.startsWith(expectedPrefix) || formKey.length <= expectedPrefix.length ||
         formKey.slice(expectedPrefix.length).trim() !== formKey.slice(expectedPrefix.length) ||
-        /\s/.test(formKey.slice(expectedPrefix.length))) {
+        /\s/.test(formKey.slice(expectedPrefix.length)) ||
+        formKey.slice(expectedPrefix.length).includes(":")) {
         addIssue("externalFormKey", "Form key must match the external Pokémon ID and contain a form.");
       }
     }
