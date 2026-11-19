@@ -8,9 +8,19 @@ on:
     branches:
       - main
 
+# Restrict the default GITHUB_TOKEN; validation does not need write access.
+permissions:
+  contents: read
+
+# Cancel superseded PR validation, but never cancel a main-branch run.
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16
