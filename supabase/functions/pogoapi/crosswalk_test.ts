@@ -241,3 +241,19 @@ Deno.test("rejects extra separators in Pokémon form keys", () => {
     "externalFormKey", "externalFormKey",
   ]);
 });
+
+Deno.test("rejects non-public and reserved DNS source hostnames", () => {
+  const urls = [
+    "https://intranet/api/v1/fast_moves.json",
+    "https://source.internal/api/v1/fast_moves.json",
+    "https://source.local/api/v1/fast_moves.json",
+    "https://source.test/api/v1/fast_moves.json",
+    "https://source.invalid/api/v1/fast_moves.json",
+    "https://source.example/api/v1/fast_moves.json",
+  ];
+  const report = validatePoGoApiCrosswalk(urls.map((sourceUrl, index) => ({
+    ...moveEntry, externalId: String(300 + index), sourceUrl,
+  })));
+  assertEquals(report.valid, []);
+  assertEquals(report.issues.map((issue) => issue.field), urls.map(() => "sourceUrl"));
+});
