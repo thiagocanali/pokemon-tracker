@@ -3,28 +3,20 @@
 \i neon/migrations/0002_auth_identity.sql
 \i neon/migrations/0003_saved_teams.sql
 
--- Verify actual SQL permission boundaries, not only grant metadata.
--- This role is disposable and created only in the isolated CI database.
-DO $ BEGIN
+-- Validate effective privileges of a disposable unprivileged role.
+-- A privilege check is deterministic without changing the role of the test runner.
+DO $$
+BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'neon_auth_ci_browser') THEN
     CREATE ROLE neon_auth_ci_browser NOLOGIN;
   END IF;
-END $;
-DO $
-BEGIN
-  EXECUTE 'SET LOCAL ROLE neon_auth_ci_browser';
-  BEGIN
-    PERFORM 1 FROM public.saved_teams LIMIT 1;
-    RAISE EXCEPTION 'Browser role unexpectedly read saved teams';
-  EXCEPTION WHEN insufficient_privilege THEN NULL;
-  END;
-  BEGIN
-    PERFORM 1 FROM app_private.auth_sessions LIMIT 1;
-    RAISE EXCEPTION 'Browser role unexpectedly read private sessions';
-  EXCEPTION WHEN insufficient_privilege THEN NULL;
-  END;
-  EXECUTE 'RESET ROLE';
-END $;
+  IF has_table_privilege('neon_auth_ci_browser', 'public.saved_teams', 'SELECT') THEN
+    RAISE EXCEPTION 'Browser role unexpectedly has SELECT on saved teams';
+  END IF;
+  IF has_schema_privilege('neon_auth_ci_browser', 'app_private', 'USAGE') THEN
+    RAISE EXCEPTION 'Browser role unexpectedly has USAGE on private auth schema';
+  END IF;
+END $$;
 
 begin;
 do $
