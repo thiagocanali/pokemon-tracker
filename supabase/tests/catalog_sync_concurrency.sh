@@ -116,7 +116,19 @@ SELECT public.test_catalog_sync_concurrency_record(clock_timestamp(), 'Stale con
 SQL
 then
   echo "Session B unexpectedly accepted a stale concurrent record." >&2
-  cat "$B_LOG"
+  echo "Session A log:" >&2
+  cat "$A_LOG" >&2
+  echo "Session B log:" >&2
+  cat "$B_LOG" >&2
+  echo "Current persisted catalog timestamps and names:" >&2
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "
+    SELECT id, collected_at, names->>'en' AS name
+    FROM public.pokemon_species
+    WHERE id = 'species-catalog-concurrency-test';
+    SELECT entity_id, captured_at, payload->>'name' AS name
+    FROM public.data_snapshots
+    WHERE entity_id = 'catalog-concurrency-test-pokemon';
+  " >&2 || true
   exit 1
 fi
 
