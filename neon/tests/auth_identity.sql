@@ -3,8 +3,31 @@
 \i neon/migrations/0002_auth_identity.sql
 \i neon/migrations/0003_saved_teams.sql
 
+-- Verify actual SQL permission boundaries, not only grant metadata.
+-- This role is disposable and created only in the isolated CI database.
+DO $ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'neon_auth_ci_browser') THEN
+    CREATE ROLE neon_auth_ci_browser NOLOGIN;
+  END IF;
+END $;
+DO $
+BEGIN
+  EXECUTE 'SET LOCAL ROLE neon_auth_ci_browser';
+  BEGIN
+    PERFORM 1 FROM public.saved_teams LIMIT 1;
+    RAISE EXCEPTION 'Browser role unexpectedly read saved teams';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    PERFORM 1 FROM app_private.auth_sessions LIMIT 1;
+    RAISE EXCEPTION 'Browser role unexpectedly read private sessions';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  EXECUTE 'RESET ROLE';
+END $;
+
 begin;
-do $$
+do $
 declare
   first_user uuid;
   second_user uuid;
